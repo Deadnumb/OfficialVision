@@ -1,30 +1,32 @@
+ 首页
+
 {% extends 'base.html' %}
 
 {% block content %}
 <div class="card">
     <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">上传图片开始识别</h2>
-    
+
     {% if error %}
     <div style="background: #fee; color: #c33; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
         {{ error }}
     </div>
     {% endif %}
-    
+
     <form method="POST" action="{% url 'upload' %}" enctype="multipart/form-data" id="uploadForm">
         {% csrf_token %}
-        
+
         <div class="upload-area" onclick="document.getElementById('imageInput').click()">
             <input type="file" id="imageInput" name="image" accept="image/*" style="display: none;" onchange="previewFile()">
             <div style="font-size: 5rem; margin-bottom: 1rem;">📁</div>
             <h3 style="color: #667eea;">点击选择图片或拖拽到这里</h3>
             <p style="color: #666; margin-top: 1rem;">支持 JPG, PNG 格式，最大 10MB</p>
         </div>
-        
+
         <div id="preview" style="display: none; margin-top: 2rem; text-align: center;">
             <img id="previewImage" style="max-width: 300px; border-radius: 10px; margin-bottom: 1rem;">
             <p id="fileName"></p>
         </div>
-        
+
         <div style="text-align: center; margin-top: 2rem;">
             <button type="submit" class="btn" style="padding: 15px 50px; font-size: 1.1rem;">
                 🚀 开始识别
@@ -37,31 +39,158 @@
     <h3>📋 支持识别的物品</h3>
     <div class="stats-grid">
         <div class="stat-item">⌨️ 键盘</div>
-        <div class="stat-item">🖊️ 笔</div>
-        <div class="stat-item">🥤 水杯</div>
-        <div class="stat-item">🖱️ 鼠标</div>
+        <div class="stat-item">🤵 人</div>
+        <div class="stat-item">🛞 桌子</div>
+        <div class="stat-item">🪑 椅子</div>
         <div class="stat-item">📱 手机</div>
-        <div class="stat-item">💻 笔记本电脑</div>
+        <div class="stat-item laptop-mode" id="laptopMode" onclick="toggleLaptopMode()"
+             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;"
+             title="点击切换仅检测笔记本模式">
+            💻 笔记本电脑
+        </div>
     </div>
-    <p style="margin-top: 1rem; color: #666;">系统将用不同颜色标注识别到的物品，并显示置信度</p>
+    <p style="margin-top: 1rem; color: #666;" id="modeDescription">系统将用不同颜色标注识别到的物品，并显示置信度</p>
 </div>
 
-<script>
+<script>let isLaptopOnlyMode = false;
+
 function previewFile() {
     const file = document.getElementById('imageInput').files[0];
     const preview = document.getElementById('preview');
     const previewImage = document.getElementById('previewImage');
     const fileName = document.getElementById('fileName');
-    
+
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
             previewImage.src = e.target.result;
             preview.style.display = 'block';
-            fileName.textContent = `已选择: ${file.name}`;
+            fileName.textContent = `已选择：${file.name}`;
         }
         reader.readAsDataURL(file);
     }
 }
+
+function toggleLaptopMode() {
+    isLaptopOnlyMode = !isLaptopOnlyMode;
+    const laptopItem = document.getElementById('laptopMode');
+    const modeDescription = document.getElementById('modeDescription');
+    const submitBtn = document.querySelector('button[type="submit"]');
+
+    if (isLaptopOnlyMode) {
+        // 选中状态
+        laptopItem.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        laptopItem.style.color = 'white';
+        laptopItem.style.border = '2px solid #764ba2';
+        laptopItem.style.transform = 'scale(1.05)';
+        modeDescription.textContent = '🎯 当前模式：仅检测笔记本电脑（点击图标切换回全物品检测）';
+        modeDescription.style.color = '#667eea';
+        submitBtn.innerHTML = '🚀 开始识别（仅笔记本）';
+    } else {
+        // 取消选中状态
+        laptopItem.style.background = '#f0f4ff';
+        laptopItem.style.color = 'inherit';
+        laptopItem.style.border = '2px solid transparent';
+        laptopItem.style.transform = 'scale(1)';
+        modeDescription.textContent = '系统将用不同颜色标注识别到的物品，并显示置信度';
+        modeDescription.style.color = '#666';
+        submitBtn.innerHTML = '🚀 开始识别';
+    }
+}
+
+// 修改表单提交行为
+// 修改表单提交行为
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    if (isLaptopOnlyMode) {
+        e.preventDefault();
+        const fileInput = document.getElementById('imageInput');
+        const file = fileInput.files[0];
+
+        if (!file) {
+            alert('请先选择一张图片！');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('image', file);
+
+        const submitBtn = document.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '⏳ 检测中...';
+        submitBtn.disabled = true;
+
+        // 显示加载状态
+        const loadingDiv = document.createElement('div');
+        loadingDiv.id = 'loadingMessage';
+        loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 2rem; border-radius: 10px; z-index: 9999;';
+        loadingDiv.innerHTML = '⏳ 正在检测笔记本电脑...';
+        document.body.appendChild(loadingDiv);
+
+        fetch("{% url 'upload_laptop' %}", {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': getCookie('csrftoken')
+            },
+            body: formData
+        })
+        .then(response => {
+            if (response.ok) {
+                // 检测成功，跳转到结果页面
+                // 使用临时 session storage 存储结果数据
+                return response.text();
+            } else {
+                return response.text().then(text => {
+                    throw new Error(text || '检测失败');
+                });
+            }
+        })
+        .then(html => {
+            // 移除加载提示
+            if (document.getElementById('loadingMessage')) {
+                document.getElementById('loadingMessage').remove();
+            }
+            // 直接替换当前页面内容为结果页面
+            document.open();
+            document.write(html);
+            document.close();
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            // 移除加载提示
+            if (document.getElementById('loadingMessage')) {
+                document.getElementById('loadingMessage').remove();
+            }
+            alert('检测失败：' + error.message + '，请重试');
+            submitBtn.innerHTML = originalText;
+            submitBtn.disabled = false;
+        });
+    }
+    // 如果不是笔记本模式，正常提交表单
+});
+
+function getCookie(name) {
+    let cookieValue = null;
+    if (document.cookie && document.cookie !== '') {
+        const cookies = document.cookie.split(';');
+        for (let i = 0; i < cookies.length; i++) {
+            const cookie = cookies[i].trim();
+            if (cookie.substring(0, name.length + 1) === (name + '=')) {
+                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
+                break;
+            }
+        }
+    }
+    return cookieValue;
+}
+
+// 确保 CSRF token 可用
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = getCookie('csrftoken');
+    if (!csrfToken) {
+        console.warn('CSRF token not found in cookies');
+    } else {
+        console.log('CSRF token loaded successfully');
+    }
+});
 </script>
 {% endblock %}

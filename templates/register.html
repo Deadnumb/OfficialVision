@@ -1,0 +1,58 @@
+{% extends 'base.html' %}
+
+{% block title %}用户注册{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6">
+        <div class="card">
+            <h2 class="text-center mb-4">用户注册</h2>
+
+            {% if form.errors %}
+            <div class="alert alert-danger" style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+                <ul>
+                    {% for field in form %}
+                        {% for error in field.errors %}
+                            <li>{{ field.label }}: {{ error }}</li>
+                        {% endfor %}
+                    {% endfor %}
+                    {% for error in form.non_field_errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            <form method="post" action="{% url 'register' %}">
+                {% csrf_token %}
+
+                <div class="form-group">
+                    <label>用户名</label>
+                    <input type="text" name="username" class="form-control" value="{{ form.username.value|default:'' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>邮箱</label>
+                    <input type="email" name="email" class="form-control" value="{{ form.email.value|default:'' }}" required>
+                </div>
+
+                <div class="form-group">
+                    <label>密码</label>
+                    <input type="password" name="password1" class="form-control" required>
+                </div>
+
+                <div class="form-group">
+                    <label>确认密码</label>
+                    <input type="password" name="password2" class="form-control" required>
+                </div>
+
+                <button type="submit" class="btn w-100">注册</button>
+            </form>
+
+            <div class="text-center mt-3">
+                <p>已有账号？<a href="{% url 'login' %}">去登录</a></p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
