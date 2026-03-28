@@ -1,0 +1,4 @@
+Django>=4.2
+ultralytics>=8.0
+opencv-python
+torch
