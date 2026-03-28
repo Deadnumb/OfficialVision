@@ -1,67 +1,69 @@
-{% extends 'base.html' %}
+{# 首页 #}
 
-{% block content %}
-<div class="card">
-    <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">上传图片开始识别</h2>
-    
-    {% if error %}
-    <div style="background: #fee; color: #c33; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-        {{ error }}
-    </div>
-    {% endif %}
-    
-    <form method="POST" action="{% url 'upload' %}" enctype="multipart/form-data" id="uploadForm">
-        {% csrf_token %}
-        
-        <div class="upload-area" onclick="document.getElementById('imageInput').click()">
-            <input type="file" id="imageInput" name="image" accept="image/*" style="display: none;" onchange="previewFile()">
-            <div style="font-size: 5rem; margin-bottom: 1rem;">📁</div>
-            <h3 style="color: #667eea;">点击选择图片或拖拽到这里</h3>
-            <p style="color: #666; margin-top: 1rem;">支持 JPG, PNG 格式，最大 10MB</p>
-        </div>
-        
-        <div id="preview" style="display: none; margin-top: 2rem; text-align: center;">
-            <img id="previewImage" style="max-width: 300px; border-radius: 10px; margin-bottom: 1rem;">
-            <p id="fileName"></p>
-        </div>
-        
-        <div style="text-align: center; margin-top: 2rem;">
-            <button type="submit" class="btn" style="padding: 15px 50px; font-size: 1.1rem;">
-                🚀 开始识别
-            </button>
-        </div>
-    </form>
-</div>
-
-<div class="card">
-    <h3>📋 支持识别的物品</h3>
-    <div class="stats-grid">
-        <div class="stat-item">⌨️ 键盘</div>
-        <div class="stat-item">🖊️ 笔</div>
-        <div class="stat-item">🥤 水杯</div>
-        <div class="stat-item">🖱️ 鼠标</div>
-        <div class="stat-item">📱 手机</div>
-        <div class="stat-item">💻 笔记本电脑</div>
-    </div>
-    <p style="margin-top: 1rem; color: #666;">系统将用不同颜色标注识别到的物品，并显示置信度</p>
-</div>
-
-<script>
-function previewFile() {
-    const file = document.getElementById('imageInput').files[0];
-    const preview = document.getElementById('preview');
-    const previewImage = document.getElementById('previewImage');
-    const fileName = document.getElementById('fileName');
-    
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            previewImage.src = e.target.result;
-            preview.style.display = 'block';
-            fileName.textContent = `已选择: ${file.name}`;
-        }
-        reader.readAsDataURL(file);
-    }
-}
-</script>
-{% endblock %}
+{#{% extends 'base.html' %}#}
+{##}
+{#{% block content %}#}
+{#<div class="card">#}
+{#    <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">上传图片开始识别</h2>#}
+{##}
+{#    {% if error %}#}
+{#    <div style="background: #fee; color: #c33; padding: 1rem; border-radius: 8px; margin: 1rem 0;">#}
+{#        {{ error }}#}
+{#    </div>#}
+{#    {% endif %}#}
+{##}
+{#    <form method="POST" action="{% url 'upload' %}" enctype="multipart/form-data" id="uploadForm">#}
+{#        {% csrf_token %}#}
+{##}
+{#        <div class="upload-area" onclick="document.getElementById('imageInput').click()">#}
+{#            <input type="file" id="imageInput" name="image" accept="image/*" style="display: none;" onchange="previewFile()">#}
+{#            <div style="font-size: 5rem; margin-bottom: 1rem;">📁</div>#}
+{#            <h3 style="color: #667eea;">点击选择图片或拖拽到这里</h3>#}
+{#            <p style="color: #666; margin-top: 1rem;">支持 JPG, PNG 格式，最大 10MB</p>#}
+{#        </div>#}
+{##}
+{#        <div id="preview" style="display: none; margin-top: 2rem; text-align: center;">#}
+{#            <img id="previewImage" style="max-width: 300px; border-radius: 10px; margin-bottom: 1rem;">#}
+{#            <p id="fileName"></p>#}
+{#        </div>#}
+{##}
+{#        <div style="text-align: center; margin-top: 2rem;">#}
+{#            <button type="submit" class="btn" style="padding: 15px 50px; font-size: 1.1rem;">#}
+{#                🚀 开始识别#}
+{#            </button>#}
+{#        </div>#}
+{#    </form>#}
+{#</div>#}
+{##}
+{#<div class="card">#}
+{#    <h3>📋 支持识别的物品</h3>#}
+{#    <div class="stats-grid">#}
+{#        <div class="stat-item">⌨️ 键盘</div>#}
+{#        <div class="stat-item">🖊️ 笔</div>#}
+{#        <div class="stat-item">🥤 水杯</div>#}
+{#        <div class="stat-item">🖱️ 鼠标</div>#}
+{#        <div class="stat-item">📱 手机</div>#}
+{#        <div class="stat-item">💻 笔记本电脑</div>#}
+{#    </div>#}
+{#    <p style="margin-top: 1rem; color: #666;">系统将用不同颜色标注识别到的物品，并显示置信度</p>#}
+{#</div>#}
+{##}
+{#<script>#}
+{#function previewFile() {#}
+{#    const file = document.getElementById('imageInput').files[0];#}
+{#    const preview = document.getElementById('preview');#}
+{#    const previewImage = document.getElementById('previewImage');#}
+{#    const fileName = document.getElementById('fileName');#}
+{##}
+{#    if (file) {#}
+{#        const reader = new FileReader();#}
+{#        reader.onload = function(e) {#}
+{#            previewImage.src = e.target.result;#}
+{#            preview.style.display = 'block';#}
+{#            fileName.textContent = `已选择: ${file.name}`;#}
+{#        }#}
+{#        reader.readAsDataURL(file);#}
+{#    }#}
+{#}#}
+{#</script>#}
+{#{% endblock %}#}

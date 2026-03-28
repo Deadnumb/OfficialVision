@@ -1,39 +1,42 @@
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>办公室物品识别系统</title>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; background: #f5f7fa; }
-        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
-        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem 0; border-radius: 0 0 20px 20px; margin-bottom: 2rem; }
-        header h1 { text-align: center; font-size: 2.5rem; margin-bottom: 1rem; }
-        .card { background: white; border-radius: 15px; padding: 2rem; margin: 1rem 0; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
-        .upload-area { border: 3px dashed #667eea; border-radius: 10px; padding: 3rem; text-align: center; cursor: pointer; transition: all 0.3s; }
-        .upload-area:hover { background: #f0f4ff; border-color: #764ba2; }
-        .btn { background: #667eea; color: white; padding: 12px 30px; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: all 0.3s; }
-        .btn:hover { background: #764ba2; transform: translateY(-2px); }
-        .image-container { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }
-        .image-box { text-align: center; }
-        .image-box img { max-width: 100%; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1rem 0; }
-        .stat-item { background: #f0f4ff; padding: 1rem; border-radius: 8px; text-align: center; }
-        .detection-list { max-height: 300px; overflow-y: auto; }
-        .detection-item { padding: 0.5rem; border-bottom: 1px solid #eee; }
-        .color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header>
-            <h1>📸 办公室物品智能识别系统</h1>
-            <p style="text-align: center; opacity: 0.9;">上传图片，自动识别键盘、鼠标、水杯等办公室物品</p>
-        </header>
-        <main>
-            {% block content %}{% endblock %}
-        </main>
-    </div>
-</body>
-</html>
+{# 这个是基础模板 #}
+{# 我其实不知道有什么用 #}
+
+{#<!DOCTYPE html>#}
+{#<html lang="zh-CN">#}
+{#<head>#}
+{#    <meta charset="UTF-8">#}
+{#    <meta name="viewport" content="width=device-width, initial-scale=1.0">#}
+{#    <title>办公室物品识别系统</title>#}
+{#    <style>#}
+{#        * { margin: 0; padding: 0; box-sizing: border-box; }#}
+{#        body { font-family: 'Segoe UI', Arial, sans-serif; line-height: 1.6; background: #f5f7fa; }#}
+{#        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }#}
+{#        header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 2rem 0; border-radius: 0 0 20px 20px; margin-bottom: 2rem; }#}
+{#        header h1 { text-align: center; font-size: 2.5rem; margin-bottom: 1rem; }#}
+{#        .card { background: white; border-radius: 15px; padding: 2rem; margin: 1rem 0; box-shadow: 0 10px 30px rgba(0,0,0,0.1); }#}
+{#        .upload-area { border: 3px dashed #667eea; border-radius: 10px; padding: 3rem; text-align: center; cursor: pointer; transition: all 0.3s; }#}
+{#        .upload-area:hover { background: #f0f4ff; border-color: #764ba2; }#}
+{#        .btn { background: #667eea; color: white; padding: 12px 30px; border: none; border-radius: 8px; font-size: 1rem; cursor: pointer; transition: all 0.3s; }#}
+{#        .btn:hover { background: #764ba2; transform: translateY(-2px); }#}
+{#        .image-container { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin: 2rem 0; }#}
+{#        .image-box { text-align: center; }#}
+{#        .image-box img { max-width: 100%; border-radius: 10px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }#}
+{#        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin: 1rem 0; }#}
+{#        .stat-item { background: #f0f4ff; padding: 1rem; border-radius: 8px; text-align: center; }#}
+{#        .detection-list { max-height: 300px; overflow-y: auto; }#}
+{#        .detection-item { padding: 0.5rem; border-bottom: 1px solid #eee; }#}
+{#        .color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }#}
+{#    </style>#}
+{#</head>#}
+{#<body>#}
+{#    <div class="container">#}
+{#        <header>#}
+{#            <h1>📸 办公室物品智能识别系统</h1>#}
+{#            <p style="text-align: center; opacity: 0.9;">上传图片，自动识别键盘、鼠标、水杯等办公室物品</p>#}
+{#        </header>#}
+{#        <main>#}
+{#            {% block content %}{% endblock %}#}
+{#        </main>#}
+{#    </div>#}
+{#</body>#}
+{#</html>#}
