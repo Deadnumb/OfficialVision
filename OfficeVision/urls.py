@@ -5,7 +5,7 @@ from django.conf.urls.static import static
 
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('', include('detection_app.urls')),
+    path('', include('detection_app.urls')),  # 关键：引入 detection_app 的路由
 ]
 
 if settings.DEBUG:

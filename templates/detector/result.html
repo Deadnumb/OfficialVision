@@ -1,12 +1,10 @@
- 识别结果
-
 {% extends 'base.html' %}
 
 {% block content %}
 <div class="card">
     <h2 style="text-align: center; color: #333;">✅ 识别完成</h2>
     <p style="text-align: center; color: #666; margin-bottom: 2rem;">共检测到 {{ total }} 个物品</p>
-
+    
     <div class="image-container">
         <div class="image-box">
             <h3>📤 原始图片</h3>
@@ -17,7 +15,7 @@
             <img src="{{ result_url }}" alt="识别结果" style="margin-top: 1rem;">
         </div>
     </div>
-
+    
     <div style="text-align: center; margin-top: 2rem;">
         <a href="{% url 'home' %}" class="btn">🔄 上传新图片</a>
     </div>

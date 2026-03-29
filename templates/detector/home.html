@@ -1,21 +1,78 @@
 {% extends 'base.html' %}
 
 {% block content %}
+<div style="max-width: 900px; margin: 0 auto; padding: 0 20px;">
 <div class="card">
-    <h2 style="text-align:center; margin-bottom:20px;">欢迎使用办公室物品识别系统</h2>
-
-    {% if user.is_authenticated %}
-        <p style="text-align:center;">你已登录：{{ user.username }}</p>
-        <div style="text-align:center; margin-top:20px;">
-           <!-- 把原来的 href="#" 改成 href="/upload/" -->
-<a href="/upload/" class="btn">开始上传图片</a>
-            <a href="/logout/" class="btn" style="background:#ff5e57;">退出登录</a>
+    <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">上传图片开始识别</h2>
+    
+    <form method="POST" action="{% url 'upload' %}" enctype="multipart/form-data" id="uploadForm">
+        {% csrf_token %}
+        
+        <!-- 👇 这就是你要的「蓝色虚线框上传区域」 -->
+        <div class="upload-area" onclick="document.getElementById('imageInput').click()" 
+             style="border: 2px dashed #667eea; border-radius: 10px; padding: 4rem; text-align: center; cursor: pointer; margin-bottom: 2rem;">
+            <input type="file" id="imageInput" name="image" accept="image/*" style="display: none;" onchange="previewFile()">
+            <div style="font-size: 4rem; margin-bottom: 1rem;">📂</div>
+            <h3 style="color: #667eea; margin: 1rem 0;">点击选择图片或拖拽到这里</h3>
+            <p style="color: #666;">支持 JPG, PNG 格式，最大 10MB</p>
         </div>
-    {% else %}
-        <div style="text-align:center; margin-top:20px;">
-            <a href="/login/" class="btn">用户登录</a>
-            <a href="/register/" class="btn">注册账号</a>
+        
+        <div id="preview" style="display: none; margin-top: 2rem; text-align: center;">
+            <img id="previewImage" style="max-width: 300px; border-radius: 10px; margin-bottom: 1rem;">
+            <p id="fileName"></p>
         </div>
-    {% endif %}
+        
+        <div style="text-align: center; margin-top: 1rem;">
+            <button type="submit" class="btn" style="padding: 12px 30px; font-size: 1rem; background: #667eea; border: none; border-radius: 8px; color: white; cursor: pointer;">
+                🚀 开始识别
+            </button>
+        </div>
+    </form>
 </div>
+
+<div class="card">
+    <h3 style="margin-bottom: 1rem;">📋 支持识别的物品</h3>
+    <!-- 👇 这就是你要的「横向按钮式物品列表」 -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 15px; margin-bottom: 1rem;">
+        <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 1.2rem;">⌨️</span><br>键盘
+        </div>
+        <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 1.2rem;">🖊️</span><br>笔
+        </div>
+        <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 1.2rem;">🥤</span><br>水杯
+        </div>
+        <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 1.2rem;">🖱️</span><br>鼠标
+        </div>
+        <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 1.2rem;">📱</span><br>手机
+        </div>
+        <div style="background: #f5f7fa; padding: 15px; border-radius: 8px; text-align: center;">
+            <span style="font-size: 1.2rem;">💻</span><br>笔记本电脑
+        </div>
+    </div>
+    <p style="color: #666; font-size: 0.9rem;">系统将用不同颜色标注识别到的物品，并显示置信度</p>
+</div>
+</div>
+
+<script>
+function previewFile() {
+    const file = document.getElementById('imageInput').files[0];
+    const preview = document.getElementById('preview');
+    const previewImage = document.getElementById('previewImage');
+    const fileName = document.getElementById('fileName');
+    
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            preview.style.display = 'block';
+            fileName.textContent = `已选择: ${file.name}`;
+        }
+        reader.readAsDataURL(file);
+    }
+}
+</script>
 {% endblock %}
