@@ -1,66 +1,66 @@
-{# 识别结果 #}
+ 识别结果
 
-{#{% extends 'base.html' %}#}
-{##}
-{#{% block content %}#}
-{#<div class="card">#}
-{#    <h2 style="text-align: center; color: #333;">✅ 识别完成</h2>#}
-{#    <p style="text-align: center; color: #666; margin-bottom: 2rem;">共检测到 {{ total }} 个物品</p>#}
-{#    #}
-{#    <div class="image-container">#}
-{#        <div class="image-box">#}
-{#            <h3>📤 原始图片</h3>#}
-{#            <img src="{{ original_url }}" alt="原始图片" style="margin-top: 1rem;">#}
-{#        </div>#}
-{#        <div class="image-box">#}
-{#            <h3>🎯 识别结果</h3>#}
-{#            <img src="{{ result_url }}" alt="识别结果" style="margin-top: 1rem;">#}
-{#        </div>#}
-{#    </div>#}
-{#    #}
-{#    <div style="text-align: center; margin-top: 2rem;">#}
-{#        <a href="{% url 'home' %}" class="btn">🔄 上传新图片</a>#}
-{#    </div>#}
-{#</div>#}
-{##}
-{#<div class="card">#}
-{#    <h3>📊 物品统计</h3>#}
-{#    <div class="stats-grid">#}
-{#        {% for item, count in stats.items %}#}
-{#        <div class="stat-item">#}
-{#            <strong>{{ item|title }}</strong><br>#}
-{#            <span style="font-size: 1.5rem; color: #667eea;">{{ count }} 个</span>#}
-{#        </div>#}
-{#        {% empty %}#}
-{#        <p style="text-align: center; color: #999; grid-column: 1/-1;">未检测到任何物品</p>#}
-{#        {% endfor %}#}
-{#    </div>#}
-{#</div>#}
-{##}
-{#{% if detections %}#}
-{#<div class="card">#}
-{#    <h3>🔍 检测详情</h3>#}
-{#    <div class="detection-list">#}
-{#        {% for detection in detections %}#}
-{#        <div class="detection-item">#}
-{#            <div style="display: flex; justify-content: space-between; align-items: center;">#}
-{#                <div>#}
-{#                    <span class="color-dot" style="background-color: {% cycle '#FF6B6B' '#4ECDC4' '#45B7D1' '#96CEB4' '#FFEAA7' '#DDA0DD' as dotcolors %}"></span>#}
-{#                    <strong style="text-transform: capitalize;">{{ detection.item }}</strong>#}
-{#                </div>#}
-{#                <div>#}
-{#                    <span style="background: #f0f4ff; padding: 3px 10px; border-radius: 12px; font-size: 0.9em;">#}
-{#                        置信度: {{ detection.confidence|floatformat:3 }}#}
-{#                    </span>#}
-{#                </div>#}
-{#            </div>#}
-{#            <div style="margin-top: 5px; font-size: 0.9em; color: #666;">#}
-{#                位置: ({{ detection.bbox.0 }}, {{ detection.bbox.1 }}) 到 ({{ detection.bbox.2 }}, {{ detection.bbox.3 }}) |#}
-{#                面积: {{ detection.area }} 像素#}
-{#            </div>#}
-{#        </div>#}
-{#        {% endfor %}#}
-{#    </div>#}
-{#</div>#}
-{#{% endif %}#}
-{#{% endblock %}#}
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h2 style="text-align: center; color: #333;">✅ 识别完成</h2>
+    <p style="text-align: center; color: #666; margin-bottom: 2rem;">共检测到 {{ total }} 个物品</p>
+
+    <div class="image-container">
+        <div class="image-box">
+            <h3>📤 原始图片</h3>
+            <img src="{{ original_url }}" alt="原始图片" style="margin-top: 1rem;">
+        </div>
+        <div class="image-box">
+            <h3>🎯 识别结果</h3>
+            <img src="{{ result_url }}" alt="识别结果" style="margin-top: 1rem;">
+        </div>
+    </div>
+
+    <div style="text-align: center; margin-top: 2rem;">
+        <a href="{% url 'home' %}" class="btn">🔄 上传新图片</a>
+    </div>
+</div>
+
+<div class="card">
+    <h3>📊 物品统计</h3>
+    <div class="stats-grid">
+        {% for item, count in stats.items %}
+        <div class="stat-item">
+            <strong>{{ item|title }}</strong><br>
+            <span style="font-size: 1.5rem; color: #667eea;">{{ count }} 个</span>
+        </div>
+        {% empty %}
+        <p style="text-align: center; color: #999; grid-column: 1/-1;">未检测到任何物品</p>
+        {% endfor %}
+    </div>
+</div>
+
+{% if detections %}
+<div class="card">
+    <h3>🔍 检测详情</h3>
+    <div class="detection-list">
+        {% for detection in detections %}
+        <div class="detection-item">
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <div>
+                    <span class="color-dot" style="background-color: {% cycle '#FF6B6B' '#4ECDC4' '#45B7D1' '#96CEB4' '#FFEAA7' '#DDA0DD' as dotcolors %}"></span>
+                    <strong style="text-transform: capitalize;">{{ detection.item }}</strong>
+                </div>
+                <div>
+                    <span style="background: #f0f4ff; padding: 3px 10px; border-radius: 12px; font-size: 0.9em;">
+                        置信度: {{ detection.confidence|floatformat:3 }}
+                    </span>
+                </div>
+            </div>
+            <div style="margin-top: 5px; font-size: 0.9em; color: #666;">
+                位置: ({{ detection.bbox.0 }}, {{ detection.bbox.1 }}) 到 ({{ detection.bbox.2 }}, {{ detection.bbox.3 }}) |
+                面积: {{ detection.area }} 像素
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+{% endblock %}
