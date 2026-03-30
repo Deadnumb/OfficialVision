@@ -39,10 +39,10 @@
     <h3> 支持识别的物品</h3>
     <div class="stats-grid">
         <div class="stat-item" data-model="keyboard" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-            ️ 键盘
+            ️ ⌨️ 键盘
         </div>
         <div class="stat-item" data-model="person" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-             人
+             🤵 人
         </div>
         <div class="stat-item" data-model="table" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
             🛞 桌子
@@ -86,7 +86,7 @@ function previewFile() {
 function toggleModelSelection(element) {
     const model = element.dataset.model;
     const modelName = element.textContent.trim();
-    
+
     // 切换选中状态
     if (selectedModels.includes(model)) {
         selectedModels = selectedModels.filter(m => m !== model);
@@ -101,7 +101,7 @@ function toggleModelSelection(element) {
         element.style.border = '2px solid #764ba2';
         element.style.transform = 'scale(1.05)';
     }
-    
+
     // 更新提示文字
     updateSelectedModelsText();
 }
@@ -110,7 +110,7 @@ function updateSelectedModelsText() {
     const textElement = document.getElementById('selectedModelsText');
     const modeDescription = document.getElementById('modeDescription');
     const submitBtn = document.querySelector('button[type="submit"]');
-    
+
     if (selectedModels.length === 0) {
         textElement.textContent = '';
         modeDescription.textContent = '系统将用不同颜色标注识别到的物品，并显示置信度';
@@ -123,7 +123,7 @@ function updateSelectedModelsText() {
         submitBtn.innerHTML = `🚀 开始识别（仅${selectedModels[0]}）`;
     } else {
         const modelNames = selectedModels.map(m => {
-            const names = {'keyboard': '键盘', 'person': '人', 'table': '桌子', 
+            const names = {'keyboard': '键盘', 'person': '人', 'table': '桌子',
                           'chair': '椅子', 'phone': '手机', 'laptop': '笔记本电脑'};
             return names[m] || m;
         }).join('、');
@@ -147,7 +147,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
     // 如果有选中的模型，使用 AJAX 提交
     if (selectedModels.length > 0) {
         e.preventDefault();
-        
+
         const formData = new FormData();
         formData.append('image', file);
         selectedModels.forEach(model => {
@@ -163,7 +163,7 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
         const loadingDiv = document.createElement('div');
         loadingDiv.id = 'loadingMessage';
         loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 2rem; border-radius: 10px; z-index: 9999;';
-        
+
         if (selectedModels.length === 1) {
             loadingDiv.innerHTML = `⏳ 正在检测${selectedModels[0]}...`;
         } else {
