@@ -69,6 +69,7 @@ def user_logout(request):
     logout(request)
     return redirect('home')
 
+
 def upload_image(request):
     print("=" * 60)
     print("[UPLOAD] 开始处理上传请求")
@@ -82,11 +83,12 @@ def upload_image(request):
 
     if request.method == 'POST' and request.FILES.get('image'):
         uploaded_file = request.FILES['image']
-        laptop_only = request.POST.get('laptop_only') == 'true'
+        # 获取前端传来的选中模型列表
+        selected_models = request.POST.getlist('selected_models')
 
         print(f"[UPLOAD] 文件名：{uploaded_file.name}")
         print(f"[UPLOAD] 文件大小：{uploaded_file.size} bytes")
-        print(f"[UPLOAD] 检测模式：{'仅笔记本' if laptop_only else '全物品'}")
+        print(f"[UPLOAD] 选择的模型：{selected_models if selected_models else '所有模型'}")
 
         date_path = datetime.now().strftime('%Y/%m/%d')
 
@@ -115,6 +117,7 @@ def upload_image(request):
         print(f"[UPLOAD] 准备创建数据库记录...")
         try:
             file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else 0
+            mode_suffix = '_'.join(selected_models) if selected_models else 'all'
 
             print(f"[UPLOAD] 创建 ImageRecord: user={request.user}, file={original_filename}")
 
@@ -123,7 +126,7 @@ def upload_image(request):
                 uploaded_image=f'uploads/{date_path}/{original_filename}',
                 file_name=uploaded_file.name,
                 file_size=file_size,
-                detection_mode='laptop_only' if laptop_only else 'all',
+                detection_mode=mode_suffix,
                 detection_status='pending'
             )
 
@@ -140,14 +143,17 @@ def upload_image(request):
             start_time = datetime.now()
             print(f"[UPLOAD] 检测开始时间：{start_time}")
 
-            if laptop_only:
-                print("[UPLOAD] 使用笔记本专用检测模式")
-                result_img, detections, stats = detector.detect_laptop_only(original_path)
-                result_filename = f"result_laptop_{timestamp}.jpg"
+            # 根据选择的模型调用不同的检测方法
+            if selected_models and len(selected_models) > 0:
+                print(f"[UPLOAD] 使用指定模型检测：{selected_models}")
+                result_img, detections, stats = detector.detect_with_models(
+                    original_path, selected_models
+                )
+                result_filename = f"result_{'_'.join(selected_models)}_{timestamp}.jpg"
             else:
                 print("[UPLOAD] 使用全物品检测模式")
                 result_img, detections, stats = detector.detect(original_path)
-                result_filename = f"result_{timestamp}.jpg"
+                result_filename = f"result_all_{timestamp}.jpg"
 
             result_dir = os.path.join(settings.MEDIA_ROOT, 'results', date_path)
             os.makedirs(result_dir, exist_ok=True)
@@ -173,7 +179,8 @@ def upload_image(request):
                 'detections': detections,
                 'stats': stats,
                 'total': len(detections),
-                'mode': 'laptop_only' if laptop_only else 'all'
+                'mode': mode_suffix,
+                'selected_models': selected_models
             }
 
             print(f"[UPLOAD] 准备更新数据库记录状态为 completed...")
