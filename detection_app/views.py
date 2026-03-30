@@ -11,27 +11,32 @@ from .utils.yolo_detector import OfficeObjectDetector
 from PIL import Image
 import json
 from django.contrib.auth import logout, login
+from django import forms
 
 # 全局检测器实例
 detector = OfficeObjectDetector()
 
-# Superuser
-# Username: admin
-# Email address: (直接回车，留空)
-# Password: (输入密码，不会显示，admin123456)
+# ======================== 完全无限制注册表单 =========================
+class CustomUserCreationForm(UserCreationForm):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # 彻底删除所有密码验证
+        self.fields['password1'].validators = []
+        self.fields['password2'].validators = []
+        # 去掉前端默认提示
+        self.fields['password1'].help_text = None
+        self.fields['password2'].help_text = None
+        self.fields['username'].help_text = None
+
+# ====================================================================
+
 
 def home(request):
-    """
-    首页视图函数，显示上传图片的表单
-    Author:
-    Args:
-        request(HttpRequest):Django 的 HttpRequest 对象
-
-    Returns:
-        HttpResponse:返回渲染后的 HTML 页面
-
-    """
+    # 未登录用户访问首页，直接跳注册页
+    if not request.user.is_authenticated:
+        return redirect('register')
     return render(request, 'detector/home.html')
+
 
 def user_login(request):
     if request.method == 'POST':
@@ -39,44 +44,38 @@ def user_login(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
+            # 登录成功 → 跳首页（识别页）
             return redirect('home')
     else:
         form = AuthenticationForm()
     return render(request, 'login.html', {'form': form})
 
-def user_register(request):
-    if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            login(request, user)
-            return redirect('home')
-    else:
-        form = UserCreationForm()
-    return render(request, 'register.html', {'form': form})
 
+def user_register(request):
+    # 已登录用户访问注册页 → 跳首页
+    if request.user.is_authenticated:
+        return redirect('home')
+
+    if request.method == 'POST':
+        form = CustomUserCreationForm(request.POST)
+        if form.is_valid():
+            form.save()
+            # 注册成功 → 跳登录页
+            return redirect('login')
+    else:
+        form = CustomUserCreationForm()
+    return render(request, 'register.html', {'form': form})
 def user_logout(request):
     logout(request)
     return redirect('home')
 
 def upload_image(request):
-    """
-    上传图片并进行目标检测的视图函数
-    Author:
-    Args:
-        request(HttpRequest):Django 的 HttpRequest 对象
-
-    Returns:
-        HttpResponse:返回渲染后的 HTML 页面
-
-    """
     print("=" * 60)
     print("[UPLOAD] 开始处理上传请求")
     print(f"[UPLOAD] 请求方法：{request.method}")
     print(f"[UPLOAD] 用户：{request.user if hasattr(request, 'user') else 'None'}")
     print(f"[UPLOAD] 用户已登录：{request.user.is_authenticated if hasattr(request, 'user') else 'False'}")
 
-    # 检查用户是否登录
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         print("[UPLOAD] 用户未登录，重定向到登录页")
         return redirect('login')
@@ -113,10 +112,8 @@ def upload_image(request):
             traceback.print_exc()
             return render(request, 'detector/home.html', {'error': f'文件保存失败：{str(e)}'})
 
-        # 创建图片记录（待检测状态）- 必须成功创建才能继续
         print(f"[UPLOAD] 准备创建数据库记录...")
         try:
-            # 获取文件大小
             file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else 0
 
             print(f"[UPLOAD] 创建 ImageRecord: user={request.user}, file={original_filename}")
@@ -138,13 +135,11 @@ def upload_image(request):
             traceback.print_exc()
             return render(request, 'detector/home.html', {'error': f'无法保存记录：{str(e)}'})
 
-        # 执行检测
         try:
             print(f"[UPLOAD] 开始执行 YOLO 检测...")
             start_time = datetime.now()
             print(f"[UPLOAD] 检测开始时间：{start_time}")
 
-            # 根据模式选择检测方法
             if laptop_only:
                 print("[UPLOAD] 使用笔记本专用检测模式")
                 result_img, detections, stats = detector.detect_laptop_only(original_path)
@@ -181,7 +176,6 @@ def upload_image(request):
                 'mode': 'laptop_only' if laptop_only else 'all'
             }
 
-            # 更新图片记录为已完成状态
             print(f"[UPLOAD] 准备更新数据库记录状态为 completed...")
             try:
                 image_record.result_image = f'results/{date_path}/{result_filename}'
@@ -210,7 +204,6 @@ def upload_image(request):
             import traceback
             traceback.print_exc()
 
-            # 更新记录状态为失败
             try:
                 print(f"[UPLOAD] 尝试将记录标记为 failed...")
                 image_record.detection_status = 'failed'
@@ -227,17 +220,6 @@ def upload_image(request):
 
 
 def upload_image_laptop(request):
-    """
-    上传图片并仅检测笔记本电脑的视图函数
-    Author:Young
-    Args:
-        request(HttpRequest):Django 的 HttpRequest 对象
-
-    Returns:
-        HttpResponse:返回渲染后的 HTML 页面
-
-    """
-    # 检查用户是否登录
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         return redirect('login')
 
@@ -257,7 +239,6 @@ def upload_image_laptop(request):
             for chunk in uploaded_file.chunks():
                 destination.write(chunk)
 
-        # 创建图片记录（待检测状态）
         try:
             file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else 0
 
@@ -299,7 +280,6 @@ def upload_image_laptop(request):
                 'mode': 'laptop_only'
             }
 
-            # 更新图片记录为已完成状态
             try:
                 image_record.result_image = f'results/{date_path}/{result_filename}'
                 image_record.detection_status = 'completed'
@@ -329,7 +309,6 @@ def upload_image_laptop(request):
                 image_record.detection_status = 'failed'
                 image_record.notes = str(e)
                 image_record.save()
-                print(f"[UPLOAD] ✓ 笔记本检测记录已标记为失败")
             except Exception:
                 pass
             return render(request, 'detector/home.html', {'error': error_message})
@@ -337,17 +316,6 @@ def upload_image_laptop(request):
     return redirect('home')
 
 def show_result(request, result_id):
-    """
-    显示检测结果的视图函数
-    Author:
-    Args:
-        request(HttpRequest):Django 的 HttpRequest 对象
-        result_id(int):检测结果的 ID
-
-    Returns:
-        HttpResponse:返回渲染后的 HTML 页面
-
-    """
     record = get_object_or_404(ImageRecord, id=result_id)
 
     context = {
@@ -363,9 +331,6 @@ def show_result(request, result_id):
     return render(request, 'detector/result.html', context)
 
 def upload_records(request):
-    """
-    显示用户上传记录的视图函数
-    """
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         return redirect('login')
 
@@ -395,9 +360,6 @@ def upload_records(request):
     return render(request, 'upload_records.html', context)
 
 def history(request):
-    """
-    显示历史检测记录的视图函数
-    """
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         return redirect('login')
 

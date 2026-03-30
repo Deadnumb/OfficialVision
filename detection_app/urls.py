@@ -9,15 +9,11 @@ URL配置
 
 """
 urlpatterns = [
-    path('', views.home, name='home'),  # 首页
+    path('', views.home, name='home'),
     path('upload/', views.upload_image, name='upload'),
-    path('result/<int:result_id>/', views.show_result, name='result'),
     path('register/', views.user_register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
-    # Deleted:path('upload/laptop/', views.upload_image_laptop, name='upload_laptop'),
-    # path('profile/', views.uprofile, name='profile'),
-    # path('history/', views.history, name='history')
-    path('history/', views.history, name='history'),  #历史记录页面
-    path('upload-records/', views.upload_records, name='upload_records'),  # 上传记录页面
+    path('history/', views.history, name='history'),
+    path('upload-records/', views.upload_records, name='upload_records'),
 ]
