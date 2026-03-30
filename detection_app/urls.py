@@ -15,9 +15,8 @@ urlpatterns = [
     path('register/', views.user_register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
-    path('upload/laptop/', views.upload_image_laptop, name='upload_laptop'),
+    # Deleted:path('upload/laptop/', views.upload_image_laptop, name='upload_laptop'),
     # path('profile/', views.uprofile, name='profile'),
     # path('history/', views.history, name='history')
-
 
 ]

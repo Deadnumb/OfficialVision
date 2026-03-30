@@ -36,23 +36,35 @@
 </div>
 
 <div class="card">
-    <h3>📋 支持识别的物品</h3>
+    <h3> 支持识别的物品</h3>
     <div class="stats-grid">
-        <div class="stat-item">⌨️ 键盘</div>
-        <div class="stat-item">🤵 人</div>
-        <div class="stat-item">🛞 桌子</div>
-        <div class="stat-item">🪑 椅子</div>
-        <div class="stat-item">📱 手机</div>
-        <div class="stat-item laptop-mode" id="laptopMode" onclick="toggleLaptopMode()"
-             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;"
-             title="点击切换仅检测笔记本模式">
+        <div class="stat-item" data-model="keyboard" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
+            ️ 键盘
+        </div>
+        <div class="stat-item" data-model="person" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
+             人
+        </div>
+        <div class="stat-item" data-model="table" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
+            🛞 桌子
+        </div>
+        <div class="stat-item" data-model="chair" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
+            🪑 椅子
+        </div>
+        <div class="stat-item" data-model="phone" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
+            📱 手机
+        </div>
+        <div class="stat-item" data-model="laptop" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
             💻 笔记本电脑
         </div>
     </div>
     <p style="margin-top: 1rem; color: #666;" id="modeDescription">系统将用不同颜色标注识别到的物品，并显示置信度</p>
+    <p style="margin-top: 0.5rem; color: #667eea; font-weight: bold;" id="selectedModelsText"></p>
 </div>
 
-<script>let isLaptopOnlyMode = false;
+<!-- ... existing code ... -->
+
+<script>// 存储选中的模型
+let selectedModels = [];
 
 function previewFile() {
     const file = document.getElementById('imageInput').files[0];
@@ -71,62 +83,95 @@ function previewFile() {
     }
 }
 
-function toggleLaptopMode() {
-    isLaptopOnlyMode = !isLaptopOnlyMode;
-    const laptopItem = document.getElementById('laptopMode');
+function toggleModelSelection(element) {
+    const model = element.dataset.model;
+    const modelName = element.textContent.trim();
+    
+    // 切换选中状态
+    if (selectedModels.includes(model)) {
+        selectedModels = selectedModels.filter(m => m !== model);
+        element.style.background = '#f0f4ff';
+        element.style.color = 'inherit';
+        element.style.border = '2px solid transparent';
+        element.style.transform = 'scale(1)';
+    } else {
+        selectedModels.push(model);
+        element.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        element.style.color = 'white';
+        element.style.border = '2px solid #764ba2';
+        element.style.transform = 'scale(1.05)';
+    }
+    
+    // 更新提示文字
+    updateSelectedModelsText();
+}
+
+function updateSelectedModelsText() {
+    const textElement = document.getElementById('selectedModelsText');
     const modeDescription = document.getElementById('modeDescription');
     const submitBtn = document.querySelector('button[type="submit"]');
-
-    if (isLaptopOnlyMode) {
-        // 选中状态
-        laptopItem.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        laptopItem.style.color = 'white';
-        laptopItem.style.border = '2px solid #764ba2';
-        laptopItem.style.transform = 'scale(1.05)';
-        modeDescription.textContent = '🎯 当前模式：仅检测笔记本电脑（点击图标切换回全物品检测）';
-        modeDescription.style.color = '#667eea';
-        submitBtn.innerHTML = '🚀 开始识别（仅笔记本）';
-    } else {
-        // 取消选中状态
-        laptopItem.style.background = '#f0f4ff';
-        laptopItem.style.color = 'inherit';
-        laptopItem.style.border = '2px solid transparent';
-        laptopItem.style.transform = 'scale(1)';
+    
+    if (selectedModels.length === 0) {
+        textElement.textContent = '';
         modeDescription.textContent = '系统将用不同颜色标注识别到的物品，并显示置信度';
         modeDescription.style.color = '#666';
         submitBtn.innerHTML = '🚀 开始识别';
+    } else if (selectedModels.length === 1) {
+        textElement.textContent = `🎯 当前模式：仅检测 ${selectedModels[0]}`;
+        modeDescription.textContent = '💡 点击多个物品可选择多模型同时检测';
+        modeDescription.style.color = '#667eea';
+        submitBtn.innerHTML = `🚀 开始识别（仅${selectedModels[0]}）`;
+    } else {
+        const modelNames = selectedModels.map(m => {
+            const names = {'keyboard': '键盘', 'person': '人', 'table': '桌子', 
+                          'chair': '椅子', 'phone': '手机', 'laptop': '笔记本电脑'};
+            return names[m] || m;
+        }).join('、');
+        textElement.textContent = `🎯 当前模式：检测 ${modelNames}`;
+        modeDescription.textContent = `💡 已选择 ${selectedModels.length} 个模型`;
+        modeDescription.style.color = '#667eea';
+        submitBtn.innerHTML = `🚀 开始识别（${selectedModels.length}个模型）`;
     }
 }
 
 // 修改表单提交行为
-// 修改表单提交行为
 document.getElementById('uploadForm').addEventListener('submit', function(e) {
-    if (isLaptopOnlyMode) {
+    const fileInput = document.getElementById('imageInput');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('请先选择一张图片！');
+        return;
+    }
+
+    // 如果有选中的模型，使用 AJAX 提交
+    if (selectedModels.length > 0) {
         e.preventDefault();
-        const fileInput = document.getElementById('imageInput');
-        const file = fileInput.files[0];
-
-        if (!file) {
-            alert('请先选择一张图片！');
-            return;
-        }
-
+        
         const formData = new FormData();
         formData.append('image', file);
+        selectedModels.forEach(model => {
+            formData.append('selected_models', model);
+        });
 
         const submitBtn = document.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = '⏳ 检测中...';
+        submitBtn.innerHTML = ' 检测中...';
         submitBtn.disabled = true;
 
         // 显示加载状态
         const loadingDiv = document.createElement('div');
         loadingDiv.id = 'loadingMessage';
         loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 2rem; border-radius: 10px; z-index: 9999;';
-        loadingDiv.innerHTML = '⏳ 正在检测笔记本电脑...';
+        
+        if (selectedModels.length === 1) {
+            loadingDiv.innerHTML = `⏳ 正在检测${selectedModels[0]}...`;
+        } else {
+            loadingDiv.innerHTML = `⏳ 正在检测 ${selectedModels.length} 个模型...`;
+        }
         document.body.appendChild(loadingDiv);
 
-        fetch("{% url 'upload_laptop' %}", {
+        fetch("{% url 'upload' %}", {
             method: 'POST',
             headers: {
                 'X-CSRFToken': getCookie('csrftoken')
@@ -135,8 +180,6 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
         })
         .then(response => {
             if (response.ok) {
-                // 检测成功，跳转到结果页面
-                // 使用临时 session storage 存储结果数据
                 return response.text();
             } else {
                 return response.text().then(text => {
@@ -165,15 +208,15 @@ document.getElementById('uploadForm').addEventListener('submit', function(e) {
             submitBtn.disabled = false;
         });
     }
-    // 如果不是笔记本模式，正常提交表单
+    // 如果没有选中的模型，正常提交表单（使用所有模型）
 });
 
 function getCookie(name) {
     let cookieValue = null;
     if (document.cookie && document.cookie !== '') {
         const cookies = document.cookie.split(';');
-        for (let i = 0; i < cookies.length; i++) {
-            const cookie = cookies[i].trim();
+        for (let i = cookies.length - 1; i >= 0; i--) {
+            let cookie = cookies[i].trim();
             if (cookie.substring(0, name.length + 1) === (name + '=')) {
                 cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
                 break;

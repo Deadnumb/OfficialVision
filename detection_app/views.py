@@ -1,6 +1,6 @@
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.shortcuts import render
-
+from .service import detection_service
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.conf import settings
@@ -75,45 +75,13 @@ def upload_image(request):
     """
     if request.method == 'POST' and request.FILES.get('image'):
         uploaded_file = request.FILES['image']
-        laptop_only = request.POST.get('laptop_only') == 'true'
 
-        date_path = datetime.now().strftime('%Y/%m/%d')
-
-        upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads', date_path)
-        os.makedirs(upload_dir, exist_ok=True)
-
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        original_filename = f"upload_{timestamp}_{uploaded_file.name}"
-        original_path = os.path.join(upload_dir, original_filename)
-
-        with open(original_path, 'wb+') as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(chunk)
+        # 获取选择的模型列表
+        selected_models = request.POST.getlist('selected_models')
 
         try:
-            # 根据模式选择检测方法
-            if laptop_only:
-                result_img, detections, stats = detector.detect_laptop_only(original_path)
-                result_filename = f"result_laptop_{timestamp}.jpg"
-            else:
-                result_img, detections, stats = detector.detect(original_path)
-                result_filename = f"result_{timestamp}.jpg"
-
-            result_dir = os.path.join(settings.MEDIA_ROOT, 'results', date_path)
-            os.makedirs(result_dir, exist_ok=True)
-
-            result_path = os.path.join(result_dir, result_filename)
-            detector.save_result_image(result_img, result_path)
-
-            context = {
-                'original_url': f'/media/uploads/{date_path}/{original_filename}',
-                'result_url': f'/media/results/{date_path}/{result_filename}',
-                'detections': detections,
-                'stats': stats,
-                'total': len(detections),
-                'mode': 'laptop_only' if laptop_only else 'all'
-            }
-
+            # 使用检测服务处理图片
+            context = detection_service.process_image(uploaded_file, selected_models)
             return render(request, 'detector/result.html', context)
 
         except Exception as e:
