@@ -12,7 +12,7 @@ import json
 from django.contrib.auth import logout, login
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-
+import cv2
 # 全局检测器实例
 detector = OfficeObjectDetector()
 

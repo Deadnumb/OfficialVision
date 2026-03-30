@@ -21,5 +21,5 @@ urlpatterns = [
     path('history/', views.history, name='history'),
     path('upload-records/', views.upload_records, name='upload_records'),
     path('upload/video/', views.upload_video, name='upload_video'),
-    path('test-media/', views.test_media_access, name='test_media'),  # 测试媒体文件
+    # path('test-media/', views.test_media_access, name='test_media'),  # 测试媒体文件
 ]
