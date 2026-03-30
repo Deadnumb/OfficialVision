@@ -1,0 +1,112 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h2>✅ 视频检测完成</h2>
+
+    <!-- 文件路径调试信息 -->
+    <div style="background: #e7f3ff; padding: 15px; border-radius: 8px; margin-bottom: 20px; border: 2px solid #2196F3;">
+        <h4 style="margin-top: 0;">📁 文件信息</h4>
+        <p><strong>服务器路径:</strong><br>
+           <code style="background: #f5f5f5; padding: 5px; display: block; margin: 5px 0;">{{ absolute_result_path }}</code></p>
+        <p><strong>访问 URL:</strong><br>
+           <code style="background: #f5f5f5; padding: 5px; display: block; margin: 5px 0;">{{ result_video_url }}</code></p>
+        <p><strong>文件存在:</strong> {{ file_exists|yesno:"✅是，❌否" }}</p>
+        <p><strong>文件大小:</strong> {{ file_size }} bytes ({% widthratio file_size 1048576 1 as mb %}{{ mb }} MB)</p>
+        <p><strong>总帧数:</strong> {{ total_frames }} 帧</p>
+        <p><strong>处理帧数:</strong> {{ processed_frames }} 帧</p>
+    </div>
+
+    <!-- 视频播放区域 -->
+    <div class="image-container" style="grid-template-columns: repeat(auto-fit, minmax(450px, 1fr)); gap: 20px;">
+        <div class="image-box">
+            <h3>📹 原始视频</h3>
+            <video width="100%" controls controlsList="nodownload" preload="auto"
+                   onerror="handleVideoError(this, '原始视频')"
+                   onloadedmetadata="handleVideoLoad(this)">
+                <source src="{{ original_video_url }}" type="video/mp4">
+                您的浏览器不支持 video 标签。
+            </video>
+            <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
+                URL: {{ original_video_url }}
+            </p>
+        </div>
+
+        <div class="image-box">
+            <h3>✨ 检测后视频 (已 H.264 编码)</h3>
+            <video width="100%" controls controlsList="nodownload" preload="auto"
+                   onerror="handleVideoError(this, '检测后视频')"
+                   onloadedmetadata="handleVideoLoad(this)">
+                <source src="{{ result_video_url }}" type="video/mp4">
+                您的浏览器不支持 video 标签。
+            </video>
+            <p style="font-size: 0.75rem; color: #666; margin-top: 8px;">
+                URL: {{ result_video_url }}
+            </p>
+            {% if file_exists and file_size > 0 %}
+            <p style="font-size: 0.8rem; color: #28a745; margin-top: 5px;">
+                ✅ 文件已生成 ({{ mb }} MB)
+            </p>
+            {% else %}
+            <p style="font-size: 0.8rem; color: #dc3545; margin-top: 5px;">
+                ❌ 文件生成失败
+            </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- 调试信息 -->
+    <div id="videoDebug" style="background: #fff3cd; padding: 15px; border-radius: 8px; margin: 20px 0; display: none;">
+        <h4>🔍 调试信息</h4>
+        <pre id="debugContent" style="background: #f8f9fa; padding: 10px; border-radius: 5px; overflow-x: auto; font-size: 0.8rem;"></pre>
+    </div>
+
+    <div class="stats-grid">
+        <div class="stat-item">
+            <strong>📊 总帧数</strong><br>
+            {{ total_frames }}
+        </div>
+        <div class="stat-item">
+            <strong>✅ 已处理帧数</strong><br>
+            {{ processed_frames }}
+        </div>
+    </div>
+
+    <h3>📊 检测统计</h3>
+    {% if summary %}
+    <div class="detection-list">
+        {% for obj, count in summary.items %}
+        <div class="detection-item">
+            <strong>{{ obj }}</strong>: {{ count }} 次
+        </div>
+        {% endfor %}
+    </div>
+    {% else %}
+    <p style="text-align: center; color: #999;">未检测到物体</p>
+    {% endif %}
+
+    <a href="{% url 'home' %}" class="btn" style="margin-top: 1rem;">🏠 返回首页</a>
+</div>
+
+<script>
+function handleVideoError(video, name) {
+    const debug = document.getElementById('videoDebug');
+    const content = document.getElementById('debugContent');
+    debug.style.display = 'block';
+
+    const code = video.error ? video.error.code : '?';
+    let msg = '未知错误';
+    if(code === 1) msg = '加载被中止';
+    else if(code === 2) msg = '网络错误';
+    else if(code === 3) msg = '解码错误 (格式不支持)';
+    else if(code === 4) msg = '文件不存在或不支持';
+
+    content.textContent = name + ' 无法播放\n错误代码：' + code + '\n' + msg;
+}
+
+function handleVideoLoad(video) {
+    console.log('✅ 视频加载成功:', video.videoWidth + 'x' + video.videoHeight, video.duration + 's');
+}
+</script>
+{% endblock %}
+</div>
