@@ -2,7 +2,7 @@ from django.urls import path
 from . import views
 
 """
-URL配置
+URL 配置
 1. 首页：显示所有检测结果
 2. 上传图片：允许用户上传图片进行检测
 3. 检测结果：显示单个检测结果的详细信息
@@ -18,6 +18,6 @@ urlpatterns = [
     path('upload/laptop/', views.upload_image_laptop, name='upload_laptop'),
     # path('profile/', views.uprofile, name='profile'),
     # path('history/', views.history, name='history')
-
-
+    path('history/', views.history, name='history'),  #历史记录页面
+    path('upload-records/', views.upload_records, name='upload_records'),  # 上传记录页面
 ]

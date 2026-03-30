@@ -23,6 +23,9 @@
         .detection-list { max-height: 300px; overflow-y: auto; }
         .detection-item { padding: 0.5rem; border-bottom: 1px solid #eee; }
         .color-dot { display: inline-block; width: 12px; height: 12px; border-radius: 50%; margin-right: 8px; }
+        nav { background: white; padding: 1rem; border-radius: 10px; margin-bottom: 1rem; box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+        nav a { color: #667eea; text-decoration: none; margin: 0 1rem; font-weight: 500; }
+        nav a:hover { color: #764ba2; }
     </style>
 </head>
 <body>
@@ -31,6 +34,18 @@
             <h1>📸 办公室物品智能识别系统</h1>
             <p style="text-align: center; opacity: 0.9;">上传图片，自动识别键盘、鼠标、水杯等办公室物品</p>
         </header>
+        <nav>
+            <a href="{% url 'home' %}">🏠 首页</a>
+            <a href="{% url 'upload' %}">📤 上传</a>
+            <a href="{% url 'history' %}">📜 历史记录</a>
+            <a href="{% url 'upload_records' %}">📤 我的上传</a>
+            {% if user.is_authenticated %}
+            <a href="{% url 'logout' %}" style="float: right;">🚪 退出</a>
+            {% else %}
+            <a href="{% url 'login' %}" style="float: right;">🔑 登录</a>
+            <a href="{% url 'register' %}" style="float: right;">✍️ 注册</a>
+            {% endif %}
+        </nav>
         <main>
             {% block content %}{% endblock %}
         </main>
