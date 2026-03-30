@@ -1,48 +1,58 @@
 from django.db import models
 from django.utils import timezone
+from django.contrib.auth.models import User
 
 
-class User(models.Model):
+class ImageRecord(models.Model):
     """
-    用户模型
-    存储用户的注册信息和登录凭证
+    图片记录模型
+    整合了上传记录和检测结果，一张图片一条记录
     """
-    # 显示用名称，可重复
-    username = models.CharField(max_length=50, verbose_name='用户名')
-    # 登录用账号，必须唯一
-    account = models.CharField(max_length=50, unique=True, verbose_name='账号')
-    # 加密后的密码
-    password = models.CharField(max_length=128, verbose_name='密码')
-    # 注册时间
-    created_at = models.DateTimeField(default=timezone.now, verbose_name='注册时间')
+    DETECTION_STATUS_CHOICES = [
+        ('pending', '待检测'),
+        ('completed', '已完成'),
+        ('failed', '检测失败'),
+    ]
+
+    DETECTION_MODE_CHOICES = [
+        ('all', '全物品检测'),
+        ('laptop_only', '仅笔记本检测'),
+    ]
+
+    # 外键关联到 Django 内置用户表
+    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户', related_name='image_records')
+
+    # 上传信息
+    uploaded_image = models.ImageField(upload_to='uploads/%Y/%m/%d/', verbose_name='上传图片')
+    upload_time = models.DateTimeField(default=timezone.now, verbose_name='上传时间')
+    file_size = models.BigIntegerField(default=0, verbose_name='文件大小 (字节)')
+    file_name = models.CharField(max_length=255, blank=True, verbose_name='原始文件名')
+
+    # 检测信息
+    detection_status = models.CharField(max_length=20, choices=DETECTION_STATUS_CHOICES, default='pending',
+                                        verbose_name='检测状态')
+    detection_mode = models.CharField(max_length=20, choices=DETECTION_MODE_CHOICES, default='all',
+                                      verbose_name='检测模式')
+    result_image = models.ImageField(upload_to='results/%Y/%m/%d/', blank=True, null=True, verbose_name='识别结果图片')
+    detection_time = models.DateTimeField(blank=True, null=True, verbose_name='检测时间')
+
+    # 检测结果数据
+    total_objects = models.IntegerField(default=0, verbose_name='物品总数')
+    detection_data = models.JSONField(default=dict, blank=True, verbose_name='检测数据')
+    processing_time = models.FloatField(default=0.0, verbose_name='处理耗时')
+
+    # 备注
+    notes = models.TextField(blank=True, verbose_name='备注')
 
     class Meta:
-        verbose_name = '用户'
-        verbose_name_plural = '用户'
+        verbose_name = '图片记录'
+        verbose_name_plural = '图片记录'
+        ordering = ['-upload_time']
 
     def __str__(self):
-        return f"{self.username}({self.account})"
+        status_text = self.get_detection_status_display()
+        return f"{self.user.username} 的图片记录 - {self.upload_time.strftime('%Y-%m-%d %H:%M')} ({status_text})"
 
-
-class DetectionResult(models.Model):
-    """
-    检测记录模型
-    存储用户的检测记录，关联到用户表
-    """
-    # 外键关联到用户表，on_delete=CASCADE表示用户删除时，其记录也删除
-    user = models.ForeignKey(User, on_delete=models.CASCADE, verbose_name='用户')
-    # 原始上传图片路径
-    original_image = models.ImageField(upload_to='uploads/%Y/%m/%d/', verbose_name='原始图片')
-    # YOLO检测后的结果图片路径
-    result_image = models.ImageField(upload_to='results/%Y/%m/%d/', verbose_name='识别结果图片')
-    # 检测时间
-    created_at = models.DateTimeField(default=timezone.now, verbose_name='检测时间')
-
-    class Meta:
-        verbose_name = '检测记录'
-        verbose_name_plural = '检测记录'
-        # 按时间倒序排列，最新的在前
-        ordering = ['-created_at']
-
-    def __str__(self):
-        return f"{self.user.username} 的检测记录 - {self.created_at.strftime('%Y-%m-%d %H:%M')}"
+    def is_detected(self):
+        """判断是否已检测"""
+        return self.detection_status == 'completed'

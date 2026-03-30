@@ -18,5 +18,6 @@ urlpatterns = [
     # Deleted:path('upload/laptop/', views.upload_image_laptop, name='upload_laptop'),
     # path('profile/', views.uprofile, name='profile'),
     # path('history/', views.history, name='history')
-
+    path('history/', views.history, name='history'),  #历史记录页面
+    path('upload-records/', views.upload_records, name='upload_records'),  # 上传记录页面
 ]
