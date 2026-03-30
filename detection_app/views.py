@@ -391,3 +391,89 @@ def history(request):
     }
 
     return render(request, 'history.html', context)
+def history(request):
+    if not hasattr(request, 'user') or not request.user.is_authenticated:
+        return redirect('login')
+
+    page = int(request.GET.get('page', 1))
+    page_size = 10
+    search_query = request.GET.get('search', '')
+
+    results = ImageRecord.objects.filter(
+        user=request.user,
+        detection_status='completed'
+    )
+
+    if search_query:
+        results = results.filter(file_name__icontains=search_query)
+
+    total_records = results.count()
+    start_idx = (page - 1) * page_size
+    end_idx = start_idx + page_size
+    paginated_results = results[start_idx:end_idx]
+    total_pages = (total_records + page_size - 1) // page_size
+
+    context = {
+        'results': paginated_results,
+        'current_page': page,
+        'total_pages': total_pages,
+        'total_records': total_records,
+        'search_query': search_query,
+        'settings': settings,
+    }
+
+    return render(request, 'history.html', context)
+
+def upload_image_only(request):
+    """
+    仅上传图片，不执行检测
+    Author:
+    Args:
+        request(HttpRequest):Django 的 HttpRequest 对象
+
+    Returns:
+        HttpResponse:返回渲染后的 HTML 页面
+
+    """
+    if not hasattr(request, 'user') or not request.user.is_authenticated:
+        return redirect('login')
+
+    if request.method == 'POST' and request.FILES.get('image'):
+        uploaded_file = request.FILES['image']
+
+        date_path = datetime.now().strftime('%Y/%m/%d')
+
+        upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads', date_path)
+        os.makedirs(upload_dir, exist_ok=True)
+
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        original_filename = f"upload_{timestamp}_{uploaded_file.name}"
+        original_path = os.path.join(upload_dir, original_filename)
+
+        try:
+            with open(original_path, 'wb+') as destination:
+                for chunk in uploaded_file.chunks():
+                    destination.write(chunk)
+        except Exception as e:
+            return render(request, 'detector/home.html', {'error': f'文件保存失败：{str(e)}'})
+
+        try:
+            file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else 0
+
+            image_record = ImageRecord.objects.create(
+                user=request.user,
+                uploaded_image=f'uploads/{date_path}/{original_filename}',
+                file_name=uploaded_file.name,
+                file_size=file_size,
+                detection_mode='all',
+                detection_status='pending'
+            )
+
+            return render(request, 'detector/home.html', {
+                'success': f'✓ 图片上传成功！已保存到"我的上传记录"'
+            })
+
+        except Exception as e:
+            return render(request, 'detector/home.html', {'error': f'无法保存记录：{str(e)}'})
+
+    return redirect('home')

@@ -11,6 +11,8 @@ URL配置
 urlpatterns = [
     path('', views.home, name='home'),
     path('upload/', views.upload_image, name='upload'),
+    path('upload-only/', views.upload_image_only, name='upload_only'),  # 仅上传
+    path('result/<int:result_id>/', views.show_result, name='result'),
     path('register/', views.user_register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
