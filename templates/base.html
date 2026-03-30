@@ -36,7 +36,8 @@
         </header>
         <nav>
             <a href="{% url 'home' %}">🏠 首页</a>
-            <a href="{% url 'upload' %}">📤 上传</a>
+            <a href="{% url 'upload' %}">📤 上传图片</a>
+            <a href="{% url 'upload_video' %}">🎬 上传视频</a>
             <a href="{% url 'history' %}">📜 历史记录</a>
             <a href="{% url 'upload_records' %}">📤 我的上传</a>
             {% if user.is_authenticated %}
