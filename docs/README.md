@@ -6,5 +6,11 @@
 ## 项目流程图
 ![flow_chart.png](flow_chart.png)
 
+## 运行说明
+1. 下载模型
+2. 运行代码创建迁移数据库
+python manage.py makemigrations
+python manage.py migrate
+
 ## 模型下载
 https://github.com/Deadnumb/OfficialVision/releases/tag/Models
