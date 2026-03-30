@@ -6,36 +6,55 @@ from django.http import JsonResponse
 from django.conf import settings
 import os
 from datetime import datetime
-from .models import ImageRecord
+from .models import ImageRecord, UserProfile
 from .utils.yolo_detector import OfficeObjectDetector
 from PIL import Image
 import json
 from django.contrib.auth import logout, login
-from django import forms
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 
 # 全局检测器实例
 detector = OfficeObjectDetector()
 
-# ======================== 完全无限制注册表单 =========================
-class CustomUserCreationForm(UserCreationForm):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # 彻底删除所有密码验证
-        self.fields['password1'].validators = []
-        self.fields['password2'].validators = []
-        # 去掉前端默认提示
-        self.fields['password1'].help_text = None
-        self.fields['password2'].help_text = None
-        self.fields['username'].help_text = None
 
-# ====================================================================
+# Superuser
+# Username: admin
+# Email address: (直接回车，留空)
+# Password: (输入密码，不会显示，admin123456)
 
 
+@login_required
 def home(request):
-    # 未登录用户访问首页，直接跳注册页
-    if not request.user.is_authenticated:
-        return redirect('register')
-    return render(request, 'detector/home.html')
+    """
+    个人中心首页视图函数
+    """
+    user = request.user
+
+    # 获取统计信息
+    total_detections = ImageRecord.objects.filter(user=user, detection_status='completed').count()
+    today_detections = ImageRecord.objects.filter(
+        user=user,
+        detection_status='completed',
+        detection_time__date=datetime.now().date()
+    ).count()
+    total_uploads = ImageRecord.objects.filter(user=user).count()
+
+    # 获取最近5条识别记录
+    recent_records = ImageRecord.objects.filter(
+        user=user,
+        detection_status='completed'
+    )[:5]
+
+    context = {
+        'user': user,
+        'total_detections': total_detections,
+        'today_detections': today_detections,
+        'total_uploads': total_uploads,
+        'recent_records': recent_records,
+    }
+
+    return render(request, 'detector/home.html', context)
 
 
 def user_login(request):
@@ -44,7 +63,6 @@ def user_login(request):
         if form.is_valid():
             user = form.get_user()
             login(request, user)
-            # 登录成功 → 跳首页（识别页）
             return redirect('home')
     else:
         form = AuthenticationForm()
@@ -52,41 +70,85 @@ def user_login(request):
 
 
 def user_register(request):
-    # 已登录用户访问注册页 → 跳首页
-    if request.user.is_authenticated:
-        return redirect('home')
-
     if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
+        form = UserCreationForm(request.POST)
         if form.is_valid():
-            form.save()
-            # 注册成功 → 跳登录页
-            return redirect('login')
+            user = form.save()
+            # 创建用户资料
+            UserProfile.objects.create(user=user)
+            login(request, user)
+            return redirect('home')
     else:
-        form = CustomUserCreationForm()
+        form = UserCreationForm()
     return render(request, 'register.html', {'form': form})
+
+
 def user_logout(request):
     logout(request)
     return redirect('home')
 
+
+@login_required
+def upload_avatar(request):
+    """上传头像"""
+    if request.method == 'POST' and request.FILES.get('avatar'):
+        avatar_file = request.FILES['avatar']
+
+        # 验证文件类型
+        allowed_types = ['image/jpeg', 'image/png', 'image/jpg']
+        if avatar_file.content_type not in allowed_types:
+            messages.error(request, '只支持 JPG、PNG 格式的图片')
+            return redirect('home')
+
+        # 验证文件大小（5MB）
+        if avatar_file.size > 5 * 1024 * 1024:
+            messages.error(request, '图片大小不能超过 5MB')
+            return redirect('home')
+
+        # 获取或创建用户资料
+        profile, created = UserProfile.objects.get_or_create(user=request.user)
+
+        # 删除旧头像文件（如果存在）
+        if profile.avatar:
+            if os.path.isfile(profile.avatar.path):
+                os.remove(profile.avatar.path)
+
+        # 保存新头像
+        profile.avatar = avatar_file
+        profile.save()
+
+        messages.success(request, '头像上传成功！')
+        return redirect('home')
+
+    return redirect('home')
+
+
 def upload_image(request):
+    """
+    上传图片并进行目标检测的视图函数
+    """
     print("=" * 60)
     print("[UPLOAD] 开始处理上传请求")
     print(f"[UPLOAD] 请求方法：{request.method}")
     print(f"[UPLOAD] 用户：{request.user if hasattr(request, 'user') else 'None'}")
     print(f"[UPLOAD] 用户已登录：{request.user.is_authenticated if hasattr(request, 'user') else 'False'}")
 
+    # 检查用户是否登录
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         print("[UPLOAD] 用户未登录，重定向到登录页")
         return redirect('login')
 
     if request.method == 'POST' and request.FILES.get('image'):
         uploaded_file = request.FILES['image']
-        laptop_only = request.POST.get('laptop_only') == 'true'
+
+        # 获取选择的模型
+        selected_models = request.POST.getlist('selected_models')
+        laptop_only = 'laptop' in selected_models and len(selected_models) == 1
 
         print(f"[UPLOAD] 文件名：{uploaded_file.name}")
         print(f"[UPLOAD] 文件大小：{uploaded_file.size} bytes")
-        print(f"[UPLOAD] 检测模式：{'仅笔记本' if laptop_only else '全物品'}")
+        print(f"[UPLOAD] 选择的模型：{selected_models}")
+        print(f"[UPLOAD] 仅笔记本模式：{laptop_only}")
 
         date_path = datetime.now().strftime('%Y/%m/%d')
 
@@ -110,8 +172,9 @@ def upload_image(request):
             print(f"[UPLOAD] ✗ 文件保存失败：{e}")
             import traceback
             traceback.print_exc()
-            return render(request, 'detector/home.html', {'error': f'文件保存失败：{str(e)}'})
+            return render(request, 'upload.html', {'error': f'文件保存失败：{str(e)}'})
 
+        # 创建图片记录
         print(f"[UPLOAD] 准备创建数据库记录...")
         try:
             file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else 0
@@ -124,7 +187,8 @@ def upload_image(request):
                 file_name=uploaded_file.name,
                 file_size=file_size,
                 detection_mode='laptop_only' if laptop_only else 'all',
-                detection_status='pending'
+                detection_status='pending',
+                selected_models=selected_models
             )
 
             print(f"[UPLOAD] ✓ 数据库记录创建成功！ID={image_record.id}")
@@ -133,17 +197,23 @@ def upload_image(request):
             print(f"[UPLOAD] ✗ 数据库记录创建失败：{e}")
             import traceback
             traceback.print_exc()
-            return render(request, 'detector/home.html', {'error': f'无法保存记录：{str(e)}'})
+            return render(request, 'upload.html', {'error': f'无法保存记录：{str(e)}'})
 
+        # 执行检测
         try:
             print(f"[UPLOAD] 开始执行 YOLO 检测...")
             start_time = datetime.now()
             print(f"[UPLOAD] 检测开始时间：{start_time}")
 
+            # 根据选择的模型进行检测
             if laptop_only:
                 print("[UPLOAD] 使用笔记本专用检测模式")
                 result_img, detections, stats = detector.detect_laptop_only(original_path)
                 result_filename = f"result_laptop_{timestamp}.jpg"
+            elif selected_models:
+                print(f"[UPLOAD] 使用指定模型检测：{selected_models}")
+                result_img, detections, stats = detector.detect_with_models(original_path, selected_models)
+                result_filename = f"result_models_{timestamp}.jpg"
             else:
                 print("[UPLOAD] 使用全物品检测模式")
                 result_img, detections, stats = detector.detect(original_path)
@@ -173,9 +243,10 @@ def upload_image(request):
                 'detections': detections,
                 'stats': stats,
                 'total': len(detections),
-                'mode': 'laptop_only' if laptop_only else 'all'
+                'mode': 'laptop_only' if laptop_only else ('custom' if selected_models else 'all')
             }
 
+            # 更新图片记录为已完成状态
             print(f"[UPLOAD] 准备更新数据库记录状态为 completed...")
             try:
                 image_record.result_image = f'results/{date_path}/{result_filename}'
@@ -185,7 +256,8 @@ def upload_image(request):
                 image_record.detection_data = {
                     'detections': detections,
                     'statistics': stats,
-                    'total_objects': len(detections)
+                    'total_objects': len(detections),
+                    'selected_models': selected_models
                 }
                 image_record.processing_time = processing_time
                 image_record.save()
@@ -204,6 +276,7 @@ def upload_image(request):
             import traceback
             traceback.print_exc()
 
+            # 更新记录状态为失败
             try:
                 print(f"[UPLOAD] 尝试将记录标记为 failed...")
                 image_record.detection_status = 'failed'
@@ -213,109 +286,16 @@ def upload_image(request):
             except Exception as update_error:
                 print(f"[UPLOAD] ✗ 更新记录状态失败：{update_error}")
 
-            return render(request, 'detector/home.html', {'error': error_message})
+            return render(request, 'upload.html', {'error': error_message})
 
-    print(f"[UPLOAD] 不是 POST 请求或没有上传文件，重定向到首页")
-    return redirect('home')
+    print(f"[UPLOAD] 不是 POST 请求或没有上传文件，返回上传页面")
+    return render(request, 'upload.html')
 
-
-def upload_image_laptop(request):
-    if not hasattr(request, 'user') or not request.user.is_authenticated:
-        return redirect('login')
-
-    if request.method == 'POST' and request.FILES.get('image'):
-        uploaded_file = request.FILES['image']
-
-        date_path = datetime.now().strftime('%Y/%m/%d')
-
-        upload_dir = os.path.join(settings.MEDIA_ROOT, 'uploads', date_path)
-        os.makedirs(upload_dir, exist_ok=True)
-
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        original_filename = f"upload_laptop_{timestamp}_{uploaded_file.name}"
-        original_path = os.path.join(upload_dir, original_filename)
-
-        with open(original_path, 'wb+') as destination:
-            for chunk in uploaded_file.chunks():
-                destination.write(chunk)
-
-        try:
-            file_size = uploaded_file.size if hasattr(uploaded_file, 'size') else 0
-
-            image_record = ImageRecord.objects.create(
-                user=request.user,
-                uploaded_image=f'uploads/{date_path}/{original_filename}',
-                file_name=uploaded_file.name,
-                file_size=file_size,
-                detection_mode='laptop_only',
-                detection_status='pending'
-            )
-            print(f"[UPLOAD] ✓ 笔记本检测记录创建成功！ID={image_record.id}")
-        except Exception as e:
-            print(f"[UPLOAD] ✗ 笔记本检测记录创建失败：{e}")
-            import traceback
-            traceback.print_exc()
-            return render(request, 'detector/home.html', {'error': f'无法保存记录：{str(e)}'})
-
-        try:
-            start_time = datetime.now()
-            result_img, detections, stats = detector.detect_laptop_only(original_path)
-
-            result_dir = os.path.join(settings.MEDIA_ROOT, 'results', date_path)
-            os.makedirs(result_dir, exist_ok=True)
-
-            result_filename = f"result_laptop_{timestamp}.jpg"
-            result_path = os.path.join(result_dir, result_filename)
-            detector.save_result_image(result_img, result_path)
-
-            end_time = datetime.now()
-            processing_time = (end_time - start_time).total_seconds()
-
-            context = {
-                'original_url': f'/media/uploads/{date_path}/{original_filename}',
-                'result_url': f'/media/results/{date_path}/{result_filename}',
-                'detections': detections,
-                'stats': stats,
-                'total': len(detections),
-                'mode': 'laptop_only'
-            }
-
-            try:
-                image_record.result_image = f'results/{date_path}/{result_filename}'
-                image_record.detection_status = 'completed'
-                image_record.detection_time = end_time
-                image_record.total_objects = len(detections)
-                image_record.detection_data = {
-                    'detections': detections,
-                    'statistics': stats,
-                    'total_objects': len(detections)
-                }
-                image_record.processing_time = processing_time
-                image_record.save()
-                print(f"[UPLOAD] ✓ 笔记本检测记录更新成功！ID={image_record.id}")
-            except Exception as e:
-                print(f"[UPLOAD] ✗ 笔记本检测记录更新失败：{e}")
-                import traceback
-                traceback.print_exc()
-
-            return render(request, 'detector/result.html', context)
-
-        except Exception as e:
-            error_message = f"检测失败：{str(e)}"
-            print(f"[UPLOAD] ✗ 笔记本检测异常：{error_message}")
-            import traceback
-            traceback.print_exc()
-            try:
-                image_record.detection_status = 'failed'
-                image_record.notes = str(e)
-                image_record.save()
-            except Exception:
-                pass
-            return render(request, 'detector/home.html', {'error': error_message})
-
-    return redirect('home')
 
 def show_result(request, result_id):
+    """
+    显示检测结果的视图函数
+    """
     record = get_object_or_404(ImageRecord, id=result_id)
 
     context = {
@@ -326,11 +306,16 @@ def show_result(request, result_id):
         'stats': record.detection_data.get('statistics', {}),
         'total': record.total_objects,
         'mode': record.detection_mode,
+        'selected_models': record.selected_models,
     }
 
     return render(request, 'detector/result.html', context)
 
+
 def upload_records(request):
+    """
+    显示用户上传记录的视图函数
+    """
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         return redirect('login')
 
@@ -359,7 +344,11 @@ def upload_records(request):
 
     return render(request, 'upload_records.html', context)
 
+
 def history(request):
+    """
+    显示历史检测记录的视图函数
+    """
     if not hasattr(request, 'user') or not request.user.is_authenticated:
         return redirect('login')
 

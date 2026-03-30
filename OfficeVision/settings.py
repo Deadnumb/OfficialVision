@@ -120,3 +120,9 @@ STATICFILES_DIRS = [BASE_DIR/'static']
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# ========== 添加的登录相关配置 ==========
+# 登录相关的 URL 配置
+LOGIN_URL = '/login/'           # 登录页面的 URL
+LOGIN_REDIRECT_URL = '/'        # 登录成功后重定向到首页
+LOGOUT_REDIRECT_URL = '/'       # 退出登录后重定向到首页

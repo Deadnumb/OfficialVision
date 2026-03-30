@@ -1,238 +1,136 @@
- 首页
-
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}个人中心 - 办公室物品智能识别系统{% endblock %}
 
 {% block content %}
-<div class="card">
-    <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">上传图片开始识别</h2>
-
-    {% if error %}
-    <div style="background: #fee; color: #c33; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
-        {{ error }}
-    </div>
-    {% endif %}
-
-    <form method="POST" action="{% url 'upload' %}" enctype="multipart/form-data" id="uploadForm">
-        {% csrf_token %}
-
-        <div class="upload-area" onclick="document.getElementById('imageInput').click()">
-            <input type="file" id="imageInput" name="image" accept="image/*" style="display: none;" onchange="previewFile()">
-            <div style="font-size: 5rem; margin-bottom: 1rem;">📁</div>
-            <h3 style="color: #667eea;">点击选择图片或拖拽到这里</h3>
-            <p style="color: #666; margin-top: 1rem;">支持 JPG, PNG 格式，最大 10MB</p>
-        </div>
-
-        <div id="preview" style="display: none; margin-top: 2rem; text-align: center;">
-            <img id="previewImage" style="max-width: 300px; border-radius: 10px; margin-bottom: 1rem;">
-            <p id="fileName"></p>
-        </div>
-
-        <div style="text-align: center; margin-top: 2rem;">
-            <button type="submit" class="btn" style="padding: 15px 50px; font-size: 1.1rem;">
-                🚀 开始识别
-            </button>
-        </div>
-    </form>
-</div>
-
-<div class="card">
-    <h3> 支持识别的物品</h3>
-    <div class="stats-grid">
-        <div class="stat-item" data-model="keyboard" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-            ️ ⌨️ 键盘
-        </div>
-        <div class="stat-item" data-model="person" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-             🤵 人
-        </div>
-        <div class="stat-item" data-model="table" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-            🛞 桌子
-        </div>
-        <div class="stat-item" data-model="chair" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-            🪑 椅子
-        </div>
-        <div class="stat-item" data-model="phone" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-            📱 手机
-        </div>
-        <div class="stat-item" data-model="laptop" onclick="toggleModelSelection(this)"             style="cursor: pointer; transition: all 0.3s ease; border: 2px solid transparent;">
-            💻 笔记本电脑
+<div class="row">
+    <div class="col-md-4">
+        <!-- 个人资料卡片 -->
+        <div class="card" style="margin-bottom: 1rem;">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1.5rem; text-align: center;">
+                {% if user.profile.avatar %}
+                    <img src="{{ user.profile.avatar.url }}" alt="头像" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 3px solid white; margin-bottom: 1rem;">
+                {% else %}
+                    <div style="width: 100px; height: 100px; border-radius: 50%; background: rgba(255,255,255,0.2); margin: 0 auto 1rem; display: flex; align-items: center; justify-content: center; font-size: 3rem;">
+                        👤
+                    </div>
+                {% endif %}
+                <h3>{{ user.username }}</h3>
+                <p style="opacity: 0.9;">{{ user.email|default:"未设置邮箱" }}</p>
+                <button type="button" class="btn btn-light btn-sm" data-bs-toggle="modal" data-bs-target="#uploadAvatarModal">
+                    📷 上传头像
+                </button>
+            </div>
+            <div class="card-body">
+                <h4>账号信息</h4>
+                <hr>
+                <p><strong>用户名：</strong> {{ user.username }}</p>
+                <p><strong>邮箱：</strong> {{ user.email|default:"未设置" }}</p>
+                <p><strong>注册时间：</strong> {{ user.date_joined|date:"Y-m-d H:i" }}</p>
+                <p><strong>上次登录：</strong> {{ user.last_login|date:"Y-m-d H:i"|default:"首次登录" }}</p>
+            </div>
         </div>
     </div>
-    <p style="margin-top: 1rem; color: #666;" id="modeDescription">系统将用不同颜色标注识别到的物品，并显示置信度</p>
-    <p style="margin-top: 0.5rem; color: #667eea; font-weight: bold;" id="selectedModelsText"></p>
+    
+    <div class="col-md-8">
+        <!-- 统计信息卡片 -->
+        <div class="card" style="margin-bottom: 1rem;">
+            <div style="background: linear-gradient(135deg, #11998e 0%, #38ef7d 100%); color: white; padding: 1rem;">
+                <h4>📊 我的统计</h4>
+            </div>
+            <div class="stats-grid" style="padding: 1.5rem;">
+                <div class="stat-item" style="background: #f0f4ff;">
+                    <div style="font-size: 2rem;">{{ total_detections }}</div>
+                    <div>总识别次数</div>
+                </div>
+                <div class="stat-item" style="background: #f0f4ff;">
+                    <div style="font-size: 2rem;">{{ today_detections }}</div>
+                    <div>今日识别</div>
+                </div>
+                <div class="stat-item" style="background: #f0f4ff;">
+                    <div style="font-size: 2rem;">{{ total_uploads }}</div>
+                    <div>上传图片数</div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 最近识别记录 -->
+        <div class="card">
+            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 1rem; display: flex; justify-content: space-between; align-items: center;">
+                <h4>📜 最近识别记录</h4>
+                <a href="{% url 'history' %}" style="color: white; text-decoration: none;">查看全部 →</a>
+            </div>
+            <div class="card-body">
+                {% if recent_records %}
+                    <div style="max-height: 400px; overflow-y: auto;">
+                        {% for record in recent_records %}
+                            <div style="padding: 1rem; border-bottom: 1px solid #eee;">
+                                <div style="display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>{{ record.file_name|default:"图片" }}</strong>
+                                        <br>
+                                        <small style="color: #666;">识别时间：{{ record.detection_time|date:"Y-m-d H:i:s"|default:record.upload_time|date:"Y-m-d H:i:s" }}</small>
+                                        <br>
+                                        <small style="color: #667eea;">识别到 {{ record.total_objects }} 个物品</small>
+                                    </div>
+                                    <a href="{% url 'result' record.id %}" class="btn btn-sm btn-primary">查看详情</a>
+                                </div>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% else %}
+                    <p style="text-align: center; color: #666; padding: 2rem;">暂无识别记录</p>
+                    <div style="text-align: center;">
+                        <a href="{% url 'upload' %}" class="btn" style="background: #667eea; color: white;">开始第一次识别</a>
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+    </div>
 </div>
 
-<!-- ... existing code ... -->
+<!-- 上传头像模态框 -->
+<div class="modal fade" id="uploadAvatarModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">上传头像</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <form method="post" action="{% url 'upload_avatar' %}" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        <label for="avatar" class="form-label">选择图片</label>
+                        <input type="file" class="form-control" id="avatar" name="avatar" accept="image/jpeg,image/png,image/jpg" required>
+                        <small class="text-muted">支持 JPG、PNG 格式，最大 5MB</small>
+                    </div>
+                    <div class="text-center">
+                        <img id="avatarPreview" src="#" alt="预览" style="max-width: 200px; display: none;" class="img-thumbnail">
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">取消</button>
+                    <button type="submit" class="btn btn-primary">上传</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
 
-<script>// 存储选中的模型
-let selectedModels = [];
-
-function previewFile() {
-    const file = document.getElementById('imageInput').files[0];
-    const preview = document.getElementById('preview');
-    const previewImage = document.getElementById('previewImage');
-    const fileName = document.getElementById('fileName');
-
+<script>
+// 头像预览
+document.getElementById('avatar')?.addEventListener('change', function(e) {
+    const file = e.target.files[0];
     if (file) {
         const reader = new FileReader();
         reader.onload = function(e) {
-            previewImage.src = e.target.result;
+            const preview = document.getElementById('avatarPreview');
+            preview.src = e.target.result;
             preview.style.display = 'block';
-            fileName.textContent = `已选择：${file.name}`;
         }
         reader.readAsDataURL(file);
-    }
-}
-
-function toggleModelSelection(element) {
-    const model = element.dataset.model;
-    const modelName = element.textContent.trim();
-
-    // 切换选中状态
-    if (selectedModels.includes(model)) {
-        selectedModels = selectedModels.filter(m => m !== model);
-        element.style.background = '#f0f4ff';
-        element.style.color = 'inherit';
-        element.style.border = '2px solid transparent';
-        element.style.transform = 'scale(1)';
-    } else {
-        selectedModels.push(model);
-        element.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
-        element.style.color = 'white';
-        element.style.border = '2px solid #764ba2';
-        element.style.transform = 'scale(1.05)';
-    }
-
-    // 更新提示文字
-    updateSelectedModelsText();
-}
-
-function updateSelectedModelsText() {
-    const textElement = document.getElementById('selectedModelsText');
-    const modeDescription = document.getElementById('modeDescription');
-    const submitBtn = document.querySelector('button[type="submit"]');
-
-    if (selectedModels.length === 0) {
-        textElement.textContent = '';
-        modeDescription.textContent = '系统将用不同颜色标注识别到的物品，并显示置信度';
-        modeDescription.style.color = '#666';
-        submitBtn.innerHTML = '🚀 开始识别';
-    } else if (selectedModels.length === 1) {
-        textElement.textContent = `🎯 当前模式：仅检测 ${selectedModels[0]}`;
-        modeDescription.textContent = '💡 点击多个物品可选择多模型同时检测';
-        modeDescription.style.color = '#667eea';
-        submitBtn.innerHTML = `🚀 开始识别（仅${selectedModels[0]}）`;
-    } else {
-        const modelNames = selectedModels.map(m => {
-            const names = {'keyboard': '键盘', 'person': '人', 'table': '桌子',
-                          'chair': '椅子', 'phone': '手机', 'laptop': '笔记本电脑'};
-            return names[m] || m;
-        }).join('、');
-        textElement.textContent = `🎯 当前模式：检测 ${modelNames}`;
-        modeDescription.textContent = `💡 已选择 ${selectedModels.length} 个模型`;
-        modeDescription.style.color = '#667eea';
-        submitBtn.innerHTML = `🚀 开始识别（${selectedModels.length}个模型）`;
-    }
-}
-
-// 修改表单提交行为
-document.getElementById('uploadForm').addEventListener('submit', function(e) {
-    const fileInput = document.getElementById('imageInput');
-    const file = fileInput.files[0];
-
-    if (!file) {
-        alert('请先选择一张图片！');
-        return;
-    }
-
-    // 如果有选中的模型，使用 AJAX 提交
-    if (selectedModels.length > 0) {
-        e.preventDefault();
-
-        const formData = new FormData();
-        formData.append('image', file);
-        selectedModels.forEach(model => {
-            formData.append('selected_models', model);
-        });
-
-        const submitBtn = document.querySelector('button[type="submit"]');
-        const originalText = submitBtn.innerHTML;
-        submitBtn.innerHTML = ' 检测中...';
-        submitBtn.disabled = true;
-
-        // 显示加载状态
-        const loadingDiv = document.createElement('div');
-        loadingDiv.id = 'loadingMessage';
-        loadingDiv.style.cssText = 'position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: rgba(0,0,0,0.8); color: white; padding: 2rem; border-radius: 10px; z-index: 9999;';
-
-        if (selectedModels.length === 1) {
-            loadingDiv.innerHTML = `⏳ 正在检测${selectedModels[0]}...`;
-        } else {
-            loadingDiv.innerHTML = `⏳ 正在检测 ${selectedModels.length} 个模型...`;
-        }
-        document.body.appendChild(loadingDiv);
-
-        fetch("{% url 'upload' %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': getCookie('csrftoken')
-            },
-            body: formData
-        })
-        .then(response => {
-            if (response.ok) {
-                return response.text();
-            } else {
-                return response.text().then(text => {
-                    throw new Error(text || '检测失败');
-                });
-            }
-        })
-        .then(html => {
-            // 移除加载提示
-            if (document.getElementById('loadingMessage')) {
-                document.getElementById('loadingMessage').remove();
-            }
-            // 直接替换当前页面内容为结果页面
-            document.open();
-            document.write(html);
-            document.close();
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            // 移除加载提示
-            if (document.getElementById('loadingMessage')) {
-                document.getElementById('loadingMessage').remove();
-            }
-            alert('检测失败：' + error.message + '，请重试');
-            submitBtn.innerHTML = originalText;
-            submitBtn.disabled = false;
-        });
-    }
-    // 如果没有选中的模型，正常提交表单（使用所有模型）
-});
-
-function getCookie(name) {
-    let cookieValue = null;
-    if (document.cookie && document.cookie !== '') {
-        const cookies = document.cookie.split(';');
-        for (let i = cookies.length - 1; i >= 0; i--) {
-            let cookie = cookies[i].trim();
-            if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                break;
-            }
-        }
-    }
-    return cookieValue;
-}
-
-// 确保 CSRF token 可用
-document.addEventListener('DOMContentLoaded', function() {
-    const csrfToken = getCookie('csrftoken');
-    if (!csrfToken) {
-        console.warn('CSRF token not found in cookies');
-    } else {
-        console.log('CSRF token loaded successfully');
     }
 });
 </script>

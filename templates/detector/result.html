@@ -1,5 +1,4 @@
- 识别结果
-
+<!-- templates/detector/result.html -->
 {% extends 'base.html' %}
 
 {% block content %}
@@ -19,7 +18,7 @@
     </div>
 
     <div style="text-align: center; margin-top: 2rem;">
-        <a href="{% url 'home' %}" class="btn">🔄 上传新图片</a>
+        <a href="{% url 'upload' %}" class="btn">🔄 上传新图片</a>
     </div>
 </div>
 
@@ -27,10 +26,12 @@
     <h3>📊 物品统计</h3>
     <div class="stats-grid">
         {% for item, count in stats.items %}
-        <div class="stat-item">
-            <strong>{{ item|title }}</strong><br>
-            <span style="font-size: 1.5rem; color: #667eea;">{{ count }} 个</span>
-        </div>
+            {% if item != 'total_objects' and item != 'selected_models' and item != 'detection_time' and item != 'original_count' and item != 'filtered_count' %}
+            <div class="stat-item">
+                <strong>{{ item }}</strong><br>
+                <span style="font-size: 1.5rem; color: #667eea;">{{ count }} 个</span>
+            </div>
+            {% endif %}
         {% empty %}
         <p style="text-align: center; color: #999; grid-column: 1/-1;">未检测到任何物品</p>
         {% endfor %}
@@ -46,7 +47,7 @@
             <div style="display: flex; justify-content: space-between; align-items: center;">
                 <div>
                     <span class="color-dot" style="background-color: {% cycle '#FF6B6B' '#4ECDC4' '#45B7D1' '#96CEB4' '#FFEAA7' '#DDA0DD' as dotcolors %}"></span>
-                    <strong style="text-transform: capitalize;">{{ detection.item }}</strong>
+                    <strong>{{ detection.label|default:detection.item|title }}</strong>
                 </div>
                 <div>
                     <span style="background: #f0f4ff; padding: 3px 10px; border-radius: 12px; font-size: 0.9em;">

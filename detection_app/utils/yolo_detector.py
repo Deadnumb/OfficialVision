@@ -7,13 +7,15 @@ import matplotlib.pyplot as plt
 from collections import defaultdict
 import os
 
+
 class OfficeObjectDetector:
     """
     办公室物品检测器
-    可以检测图片中的键盘、笔、杯子、鼠标、手机和笔记本电脑
+    可以检测图片中的键盘、椅子、桌子、人、手机和笔记本电脑
     支持加载多个模型进行检测
     默认加载所有模型
     """
+
     def __init__(self, models_base_path="models/"):
         """
         初始化办公室物品检测器
@@ -30,6 +32,17 @@ class OfficeObjectDetector:
 
         self.models = {}
         self.colors = {}
+
+        # 物品名称映射（英文显示名称）
+        self.item_display_names = {
+            'keyboard': 'Keyboard',
+            'chair': 'Chair',
+            'table': 'Table',
+            'person': 'Person',
+            'phone': 'Phone',
+            'laptop': 'Laptop'
+        }
+
         self._load_models()
         self._setup_colors()
 
@@ -39,7 +52,6 @@ class OfficeObjectDetector:
         Author:
         Returns:
             None
-
         """
         model_config = {
             'keyboard': 'keyboard.pt',
@@ -54,7 +66,7 @@ class OfficeObjectDetector:
             model_path = self.models_base / filename
             if model_path.exists():
                 self.models[item] = YOLO(str(model_path))
-                print(f"✅ 已加载模型: {item}")
+                print(f"✅ 已加载模型: {item} ({self.item_display_names.get(item, item)})")
             else:
                 print(f"⚠️  模型不存在: {filename}")
 
@@ -64,7 +76,6 @@ class OfficeObjectDetector:
         Author:
         Returns:
             None
-
         """
         # 使用matplotlib的颜色映射
         cmap = plt.cm.get_cmap('tab20c')
@@ -80,14 +91,13 @@ class OfficeObjectDetector:
 
     def detect(self, image_path):
         """
-        检测图片中的办公室物品
+        检测图片中的办公室物品（使用所有模型）
         Author:
         Args:
             image_path: 图片路径
 
         Returns:
             (标注后的图片, 检测结果列表, 统计信息)
-
         """
         img = cv2.imread(str(image_path))
         if img is None:
@@ -113,8 +123,81 @@ class OfficeObjectDetector:
                         color = self.colors.get(item, (0, 255, 0))
                         cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
 
-                        # 绘制标签背景
-                        label = f"{item} {conf:.2f}"
+                        # 使用英文标签
+                        display_name = self.item_display_names.get(item, item)
+                        label = f"{display_name} {conf:.2f}"
+                        (text_width, text_height), baseline = cv2.getTextSize(
+                            label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+                        )
+
+                        # 标签背景框
+                        cv2.rectangle(result_img,
+                                      (x1, y1 - text_height - 10),
+                                      (x1 + text_width, y1),
+                                      color, -1)
+
+                        # 标签文字
+                        cv2.putText(result_img, label,
+                                    (x1, y1 - 5),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                                    (255, 255, 255), 2)
+
+                        # 记录检测结果（使用英文标签）
+                        detection = {
+                            'item': item,
+                            'label': display_name,  # 英文显示名称
+                            'label_en': item,  # 英文标签
+                            'confidence': round(conf, 3),
+                            'bbox': [x1, y1, x2, y2],
+                            'area': (x2 - x1) * (y2 - y1)
+                        }
+                        all_detections.append(detection)
+                        stats[display_name] += 1  # 使用英文统计
+
+        # 添加统计信息
+        stats['total_objects'] = len(all_detections)
+        stats['detection_time'] = True
+
+        return result_img, all_detections, dict(stats)
+
+    def detect_laptop_only(self, image_path):
+        """
+        仅检测图片中的笔记本电脑
+        Author:
+        Args:
+            image_path: 图片路径
+
+        Returns:
+            (标注后的图片，检测结果列表，统计信息)
+        """
+        img = cv2.imread(str(image_path))
+        if img is None:
+            raise ValueError(f"无法读取图片：{image_path}")
+
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result_img = img.copy()
+
+        all_detections = []
+        stats = defaultdict(int)
+
+        # 只使用 laptop 模型检测
+        if 'laptop' in self.models:
+            model = self.models['laptop']
+            results = model(img_rgb, conf=0.3, iou=0.5, verbose=False)
+
+            for result in results:
+                if result.boxes is not None:
+                    for box in result.boxes:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                        conf = float(box.conf[0])
+
+                        # 绘制边界框
+                        color = self.colors.get('laptop', (0, 255, 0))
+                        cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
+
+                        # 使用英文标签
+                        display_name = self.item_display_names.get('laptop', 'Laptop')
+                        label = f"{display_name} {conf:.2f}"
                         (text_width, text_height), baseline = cv2.getTextSize(
                             label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
                         )
@@ -133,97 +216,21 @@ class OfficeObjectDetector:
 
                         # 记录检测结果
                         detection = {
-                            'item': item,
+                            'item': 'laptop',
+                            'label': display_name,  # 英文显示名称
+                            'label_en': 'laptop',  # 英文标签
                             'confidence': round(conf, 3),
                             'bbox': [x1, y1, x2, y2],
                             'area': (x2 - x1) * (y2 - y1)
                         }
                         all_detections.append(detection)
-                        stats[item] += 1
+                        stats[display_name] += 1
+
+        # 添加统计信息
+        stats['total_objects'] = len(all_detections)
+        stats['detection_time'] = True
 
         return result_img, all_detections, dict(stats)
-
-
-    # def detect_laptop_only(self, image_path):
-    #     """
-    #     仅检测图片中的笔记本电脑
-    #     Author:
-    #     Args:
-    #         image_path: 图片路径
-    #
-    #     Returns:
-    #         (标注后的图片，检测结果列表，统计信息)
-    #
-    #     """
-    #     img = cv2.imread(str(image_path))
-    #     if img is None:
-    #         raise ValueError(f"无法读取图片：{image_path}")
-    #
-    #     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    #     result_img = img.copy()
-    #
-    #     all_detections = []
-    #     stats = defaultdict(int)
-    #
-    #     # 只使用 laptop 模型检测
-    #     if 'laptop' in self.models:
-    #         model = self.models['laptop']
-    #         results = model(img_rgb, conf=0.3, iou=0.5, verbose=False)
-    #
-    #         for result in results:
-    #             if result.boxes is not None:
-    #                 for box in result.boxes:
-    #                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
-    #                     conf = float(box.conf[0])
-    #
-    #                     # 绘制边界框
-    #                     color = self.colors.get('laptop', (0, 255, 0))
-    #                     cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
-    #
-    #                     # 绘制标签背景
-    #                     label = f"laptop {conf:.2f}"
-    #                     (text_width, text_height), baseline = cv2.getTextSize(
-    #                         label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
-    #                     )
-    #
-    #                     # 标签背景框
-    #                     cv2.rectangle(result_img,
-    #                                   (x1, y1 - text_height - 10),
-    #                                   (x1 + text_width, y1),
-    #                                   color, -1)
-    #
-    #                     # 标签文字
-    #                     cv2.putText(result_img, label,
-    #                                 (x1, y1 - 5),
-    #                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6,
-    #                                 (255, 255, 255), 2)
-    #
-    #                     # 记录检测结果
-    #                     detection = {
-    #                         'item': 'laptop',
-    #                         'confidence': round(conf, 3),
-    #                         'bbox': [x1, y1, x2, y2],
-    #                         'area': (x2 - x1) * (y2 - y1)
-    #                     }
-    #                     all_detections.append(detection)
-    #                     stats['laptop'] += 1
-    #
-    #     return result_img, all_detections, dict(stats)
-
-    def save_result_image(self, result_img, output_path):
-        """
-        保存结果图片
-        Author:
-        Args:
-            result_img: 结果图片
-            output_path: 输出图片路径
-
-        Returns:
-            输出图片路径
-
-        """
-        cv2.imwrite(str(output_path), result_img)
-        return output_path
 
     def detect_with_models(self, image_path, model_names):
         """
@@ -235,8 +242,9 @@ class OfficeObjectDetector:
 
         Returns:
             (标注后的图片，检测结果列表，统计信息)
-
         """
+        print(f"[DETECT] 使用指定模型检测: {model_names}")
+
         img = cv2.imread(str(image_path))
         if img is None:
             raise ValueError(f"无法读取图片：{image_path}")
@@ -250,6 +258,7 @@ class OfficeObjectDetector:
         # 只使用指定的模型检测
         for item_name in model_names:
             if item_name not in self.models:
+                print(f"[DETECT] 模型不存在: {item_name}")
                 continue
 
             model = self.models[item_name]
@@ -265,8 +274,9 @@ class OfficeObjectDetector:
                         color = self.colors.get(item_name, (0, 255, 0))
                         cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
 
-                        # 绘制标签背景
-                        label = f"{item_name} {conf:.2f}"
+                        # 使用英文标签
+                        display_name = self.item_display_names.get(item_name, item_name)
+                        label = f"{display_name} {conf:.2f}"
                         (text_width, text_height), baseline = cv2.getTextSize(
                             label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
                         )
@@ -283,14 +293,40 @@ class OfficeObjectDetector:
                                     cv2.FONT_HERSHEY_SIMPLEX, 0.6,
                                     (255, 255, 255), 2)
 
-                        # 记录检测结果
+                        # 记录检测结果（使用英文标签）
                         detection = {
                             'item': item_name,
+                            'label': display_name,  # 英文显示名称
+                            'label_en': item_name,  # 英文标签
                             'confidence': round(conf, 3),
                             'bbox': [x1, y1, x2, y2],
                             'area': (x2 - x1) * (y2 - y1)
                         }
                         all_detections.append(detection)
-                        stats[item_name] += 1
+                        stats[display_name] += 1  # 使用英文统计
+
+        # 添加统计信息
+        stats['total_objects'] = len(all_detections)
+        stats['selected_models'] = [self.item_display_names.get(m, m) for m in model_names]
+        stats['detection_time'] = True
+
+        print(f"[DETECT] 检测完成，找到 {len(all_detections)} 个物品")
+        for item, count in stats.items():
+            if isinstance(item, str) and item not in ['total_objects', 'selected_models', 'detection_time']:
+                print(f"  - {item}: {count}个")
 
         return result_img, all_detections, dict(stats)
+
+    def save_result_image(self, result_img, output_path):
+        """
+        保存结果图片
+        Author:
+        Args:
+            result_img: 结果图片
+            output_path: 输出图片路径
+
+        Returns:
+            输出图片路径
+        """
+        cv2.imwrite(str(output_path), result_img)
+        return output_path
