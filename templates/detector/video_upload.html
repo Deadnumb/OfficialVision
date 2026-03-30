@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="card">
+    <h2>📹 上传视频进行检测</h2>
+
+    <!-- 错误信息显示 -->
+    {% if error %}
+    <div class="alert alert-danger" style="background: #f8d7da; color: #721c24; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+        ❌ {{ error }}
+    </div>
+    {% endif %}
+
+    <!-- 成功消息 -->
+    {% if success %}
+    <div class="alert alert-success" style="background: #d4edda; color: #155724; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+        ✅ {{ success }}
+    </div>
+    {% endif %}
+
+    <form method="post" enctype="multipart/form-data" action="{% url 'upload_video' %}" id="videoUploadForm">
+        {% csrf_token %}
+        <div class="upload-area" onclick="document.getElementById('videoInput').click()" id="uploadArea">
+            <input type="file" name="video" id="videoInput" accept="video/*" style="display: none;" required onchange="handleFileSelect()">
+            <p id="uploadText">点击选择视频文件</p>
+            <p id="fileName" style="font-size: 0.9rem; color: #667eea; font-weight: bold;"></p>
+            <p style="font-size: 0.9rem; color: #666;">支持 MP4、AVI、MOV、MKV、WEBM 格式</p>
+            <p style="font-size: 0.8rem; color: #999;">最大文件大小：100MB</p>
+        </div>
+        <button type="submit" class="btn" id="submitBtn" style="margin-top: 1rem;">
+            <span id="btnText">🚀 开始检测</span>
+            <span id="btnLoading" style="display: none;">⏳ 处理中...</span>
+        </button>
+    </form>
+
+    <div style="margin-top: 1rem; padding: 10px; background: #f0f0f0; border-radius: 5px;">
+        <h4>💡 使用说明：</h4>
+        <ul style="font-size: 0.9rem; color: #555;">
+            <li>上传的视频文件将被逐帧分析</li>
+            <li>系统会检测视频中的办公室物品（键盘、椅子、桌子、人、手机、笔记本电脑）</li>
+            <li>处理时间取决于视频长度和复杂度</li>
+            <li>建议上传短视频以获得更快的处理速度</li>
+            <li><strong>📢 提示：上传大视频可能需要几分钟，请耐心等待</strong></li>
+        </ul>
+    </div>
+</div>
+
+<script>
+function handleFileSelect() {
+    const input = document.getElementById('videoInput');
+    const fileNameDisplay = document.getElementById('fileName');
+    const uploadText = document.getElementById('uploadText');
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnLoading = document.getElementById('btnLoading');
+
+    if (input.files && input.files[0]) {
+        const file = input.files[0];
+        const fileSize = (file.size / (1024 * 1024)).toFixed(2);
+        fileNameDisplay.textContent = `✅ 已选择：${file.name} (${fileSize} MB)`;
+        uploadText.textContent = '✓ 文件已选择，点击"开始检测"上传';
+        uploadText.style.color = '#28a745';
+    }
+}
+
+// 表单提交时的处理
+document.getElementById('videoUploadForm').addEventListener('submit', function(e) {
+    const input = document.getElementById('videoInput');
+    if (!input.files || !input.files[0]) {
+        e.preventDefault();
+        alert('❌ 请先选择一个视频文件！');
+        return false;
+    }
+
+    const submitBtn = document.getElementById('submitBtn');
+    const btnText = document.getElementById('btnText');
+    const btnLoading = document.getElementById('btnLoading');
+
+    // 显示加载状态
+    submitBtn.disabled = true;
+    submitBtn.style.backgroundColor = '#ccc';
+    btnText.style.display = 'none';
+    btnLoading.style.display = 'inline';
+
+    // 提示用户
+    console.log('📤 开始上传视频...');
+});
+
+// 页面加载时检查是否有未完成的上传
+window.addEventListener('beforeunload', function(e) {
+    const input = document.getElementById('videoInput');
+    if (input.files && input.files[0]) {
+        // 如果有文件但未提交，提醒用户
+        if (!document.querySelector('.alert')) {
+            e.preventDefault();
+            e.returnValue = '';
+        }
+    }
+});
+</script>
+{% endblock %}

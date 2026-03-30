@@ -40,6 +40,7 @@ class ImageRecord(models.Model):
     total_objects = models.IntegerField(default=0, verbose_name='物品总数')
     detection_data = models.JSONField(default=dict, blank=True, verbose_name='检测数据')
     processing_time = models.FloatField(default=0.0, verbose_name='处理耗时')
+    selected_models = models.JSONField(default=list, blank=True, verbose_name='选择的模型')
 
     # 备注
     notes = models.TextField(blank=True, verbose_name='备注')
@@ -56,3 +57,18 @@ class ImageRecord(models.Model):
     def is_detected(self):
         """判断是否已检测"""
         return self.detection_status == 'completed'
+
+
+class UserProfile(models.Model):
+    """用户资料模型"""
+    user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    avatar = models.ImageField(upload_to='avatars/%Y/%m/', blank=True, null=True, verbose_name='头像')
+    bio = models.TextField(blank=True, null=True, verbose_name='个人简介')
+    phone = models.CharField(max_length=20, blank=True, null=True, verbose_name='手机号')
+
+    class Meta:
+        verbose_name = '用户资料'
+        verbose_name_plural = '用户资料'
+
+    def __str__(self):
+        return f"{self.user.username}的资料"

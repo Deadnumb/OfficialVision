@@ -1,12 +1,184 @@
 {% extends 'base.html' %}
+{% load static %}
+
+{% block title %}图片识别 - 办公室物品智能识别系统{% endblock %}
 
 {% block content %}
 <div class="card">
-    <h2 style="text-align:center;">上传图片进行物品识别</h2>
-    <form method="post" enctype="multipart/form-data" style="text-align:center; margin-top:20px;">
+    <h2 style="text-align: center; margin-bottom: 2rem; color: #333;">上传图片开始识别</h2>
+
+    {% if error %}
+    <div style="background: #fee; color: #c33; padding: 1rem; border-radius: 8px; margin: 1rem 0;">
+        {{ error }}
+    </div>
+    {% endif %}
+
+    <form method="POST" action="{% url 'upload' %}" enctype="multipart/form-data" id="uploadForm">
         {% csrf_token %}
-        <input type="file" name="image" accept="image/*" required>
-        <button type="submit" class="btn" style="margin-top:10px;">开始识别</button>
+
+        <div class="upload-area" onclick="document.getElementById('imageInput').click()">
+            <input type="file" id="imageInput" name="image" accept="image/*" style="display: none;" onchange="previewFile()">
+            <div style="font-size: 5rem; margin-bottom: 1rem;">📁</div>
+            <h3 style="color: #667eea;">点击选择图片或拖拽到这里</h3>
+            <p style="color: #666; margin-top: 1rem;">支持 JPG, PNG 格式，最大 10MB</p>
+        </div>
+
+        <div id="preview" style="display: none; margin-top: 2rem; text-align: center;">
+            <img id="previewImage" style="max-width: 300px; border-radius: 10px; margin-bottom: 1rem;">
+            <p id="fileName"></p>
+        </div>
+
+        <div style="text-align: center; margin-top: 2rem;">
+            <button type="submit" class="btn" style="padding: 15px 50px; font-size: 1.1rem;">
+                🚀 开始识别
+            </button>
+        </div>
     </form>
 </div>
+
+<div class="card">
+    <h3>🎯 支持识别的物品</h3>
+    <div class="stats-grid" id="modelsGrid">
+        <div class="stat-item" data-model="keyboard" onclick="toggleModelSelection(this)">
+            ⌨️ 键盘
+        </div>
+        <div class="stat-item" data-model="person" onclick="toggleModelSelection(this)">
+            🤵 人
+        </div>
+        <div class="stat-item" data-model="table" onclick="toggleModelSelection(this)">
+            🛞 桌子
+        </div>
+        <div class="stat-item" data-model="chair" onclick="toggleModelSelection(this)">
+            🪑 椅子
+        </div>
+        <div class="stat-item" data-model="phone" onclick="toggleModelSelection(this)">
+            📱 手机
+        </div>
+        <div class="stat-item" data-model="laptop" onclick="toggleModelSelection(this)">
+            💻 笔记本电脑
+        </div>
+    </div>
+    <p style="margin-top: 1rem; color: #666;" id="modeDescription">点击物品可选择只检测特定物品，不选择则检测全部</p>
+    <p style="margin-top: 0.5rem; color: #667eea; font-weight: bold;" id="selectedModelsText"></p>
+</div>
+
+<script>
+let selectedModels = [];
+
+function previewFile() {
+    const file = document.getElementById('imageInput').files[0];
+    const preview = document.getElementById('preview');
+    const previewImage = document.getElementById('previewImage');
+    const fileName = document.getElementById('fileName');
+
+    if (file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            previewImage.src = e.target.result;
+            preview.style.display = 'block';
+            fileName.textContent = `已选择：${file.name}`;
+        }
+        reader.readAsDataURL(file);
+    }
+}
+
+function toggleModelSelection(element) {
+    const model = element.dataset.model;
+    const modelName = element.textContent.trim();
+
+    if (selectedModels.includes(model)) {
+        selectedModels = selectedModels.filter(m => m !== model);
+        element.style.background = '#f0f4ff';
+        element.style.color = 'inherit';
+        element.style.border = '2px solid transparent';
+        element.style.transform = 'scale(1)';
+    } else {
+        selectedModels.push(model);
+        element.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+        element.style.color = 'white';
+        element.style.border = '2px solid #764ba2';
+        element.style.transform = 'scale(1.05)';
+    }
+    updateSelectedModelsText();
+}
+
+function updateSelectedModelsText() {
+    const textElement = document.getElementById('selectedModelsText');
+    const modeDescription = document.getElementById('modeDescription');
+    const submitBtn = document.querySelector('button[type="submit"]');
+
+    if (selectedModels.length === 0) {
+        textElement.textContent = '';
+        modeDescription.textContent = '点击物品可选择只检测特定物品，不选择则检测全部';
+        modeDescription.style.color = '#666';
+        submitBtn.innerHTML = '🚀 开始识别（全部物品）';
+    } else if (selectedModels.length === 1) {
+        const modelNames = {'keyboard': '键盘', 'person': '人', 'table': '桌子', 'chair': '椅子', 'phone': '手机', 'laptop': '笔记本电脑'};
+        textElement.textContent = `🎯 当前模式：仅检测 ${modelNames[selectedModels[0]]}`;
+        modeDescription.textContent = '💡 点击多个物品可选择多模型同时检测';
+        modeDescription.style.color = '#667eea';
+        submitBtn.innerHTML = `🚀 开始识别（仅${modelNames[selectedModels[0]]}）`;
+    } else {
+        const modelNames = selectedModels.map(m => {
+            const names = {'keyboard': '键盘', 'person': '人', 'table': '桌子', 'chair': '椅子', 'phone': '手机', 'laptop': '笔记本电脑'};
+            return names[m] || m;
+        }).join('、');
+        textElement.textContent = `🎯 当前模式：检测 ${modelNames}`;
+        modeDescription.textContent = `💡 已选择 ${selectedModels.length} 个物品`;
+        modeDescription.style.color = '#667eea';
+        submitBtn.innerHTML = `🚀 开始识别（${selectedModels.length}个物品）`;
+    }
+}
+
+// 表单提交处理
+document.getElementById('uploadForm').addEventListener('submit', function(e) {
+    const fileInput = document.getElementById('imageInput');
+    const file = fileInput.files[0];
+
+    if (!file) {
+        alert('请先选择一张图片！');
+        e.preventDefault();
+        return;
+    }
+
+    // 如果有选中的模型，在表单中添加隐藏字段
+    if (selectedModels.length > 0) {
+        // 清除之前的隐藏字段
+        document.querySelectorAll('input[name="selected_models"]').forEach(el => el.remove());
+        
+        // 添加新的隐藏字段
+        selectedModels.forEach(model => {
+            const input = document.createElement('input');
+            input.type = 'hidden';
+            input.name = 'selected_models';
+            input.value = model;
+            this.appendChild(input);
+        });
+    }
+});
+
+// 拖拽上传
+const uploadArea = document.querySelector('.upload-area');
+uploadArea.addEventListener('dragover', (e) => {
+    e.preventDefault();
+    uploadArea.style.background = '#f0f4ff';
+});
+
+uploadArea.addEventListener('dragleave', () => {
+    uploadArea.style.background = '';
+});
+
+uploadArea.addEventListener('drop', (e) => {
+    e.preventDefault();
+    uploadArea.style.background = '';
+    const file = e.dataTransfer.files[0];
+    if (file && (file.type === 'image/jpeg' || file.type === 'image/png' || file.type === 'image/jpg')) {
+        const input = document.getElementById('imageInput');
+        input.files = e.dataTransfer.files;
+        previewFile();
+    } else {
+        alert('请选择 JPG 或 PNG 格式的图片文件');
+    }
+});
+</script>
 {% endblock %}

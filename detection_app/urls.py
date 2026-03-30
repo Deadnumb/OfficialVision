@@ -9,11 +9,17 @@ URL配置
 
 """
 urlpatterns = [
-    path('', views.home, name='home'),
+    path('', views.home, name='home'),  # 首页改为个人中心
     path('upload/', views.upload_image, name='upload'),
+    path('result/<int:result_id>/', views.show_result, name='result'),
     path('register/', views.user_register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
     path('history/', views.history, name='history'),
     path('upload-records/', views.upload_records, name='upload_records'),
+    path('upload-avatar/', views.upload_avatar, name='upload_avatar'),
+    path('history/', views.history, name='history'),
+    path('upload-records/', views.upload_records, name='upload_records'),
+    path('upload/video/', views.upload_video, name='upload_video'),
+    # path('test-media/', views.test_media_access, name='test_media'),  # 测试媒体文件
 ]
