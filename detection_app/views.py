@@ -1,6 +1,6 @@
+# views.py
 from django.contrib.auth.forms import AuthenticationForm, UserCreationForm
 from django.shortcuts import render
-from .service import detection_service
 from django.shortcuts import render, redirect, get_object_or_404
 from django.http import JsonResponse
 from django.conf import settings
@@ -11,6 +11,307 @@ from .utils.yolo_detector import OfficeObjectDetector
 from PIL import Image
 import json
 from django.contrib.auth import logout, login
+import cv2
+import torch
+import numpy as np
+from pathlib import Path
+from ultralytics import YOLO
+import matplotlib.pyplot as plt
+from collections import defaultdict
+import os
+from django.contrib.auth.decorators import login_required
+from datetime import datetime
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.conf import settings
+
+class OfficeObjectDetector:
+    """
+    办公室物品检测器
+    可以检测图片中的键盘、笔、杯子、鼠标、手机和笔记本电脑
+    支持加载多个模型进行检测
+    默认加载所有模型
+    """
+    def __init__(self, models_base_path="models/"):
+        """
+        初始化办公室物品检测器
+        Author:
+        Args:
+            models_base_path(str): 模型文件夹路径
+        """
+        if models_base_path is None:
+            # 获取项目根目录（OfficeVision 项目的根目录）
+            project_root = Path(__file__).parent.parent.parent
+            self.models_base = project_root / 'models'
+        else:
+            self.models_base = Path(models_base_path)
+
+        self.models = {}
+        self.colors = {}
+        self._load_models()
+        self._setup_colors()
+
+    def _load_models(self):
+        """
+        加载所有物品检测模型
+        Author:
+        Returns:
+            None
+
+        """
+        model_config = {
+            'keyboard': 'keyboard.pt',
+            'chair': 'chair.pt',
+            'table': 'table.pt',
+            'person': 'person.pt',
+            'phone': 'phone.pt',
+            'laptop': 'laptop.pt'
+        }
+
+        for item, filename in model_config.items():
+            model_path = self.models_base / filename
+            if model_path.exists():
+                self.models[item] = YOLO(str(model_path))
+                print(f"✅ 已加载模型: {item}")
+            else:
+                print(f"⚠️  模型不存在: {filename}")
+
+    def _setup_colors(self):
+        """
+        设置每个物品类别的颜色
+        Author:
+        Returns:
+            None
+
+        """
+        # 使用matplotlib的颜色映射
+        cmap = plt.cm.get_cmap('tab20c')
+        items = list(self.models.keys())
+
+        for idx, item in enumerate(items):
+            # 转换为BGR格式（OpenCV使用）
+            rgb_color = cmap(idx / max(len(items), 1))[:3]
+            bgr_color = (int(rgb_color[2] * 255),
+                         int(rgb_color[1] * 255),
+                         int(rgb_color[0] * 255))
+            self.colors[item] = bgr_color
+
+    def detect(self, image_path):
+        """
+        检测图片中的办公室物品
+        Author:
+        Args:
+            image_path: 图片路径
+
+        Returns:
+            (标注后的图片, 检测结果列表, 统计信息)
+
+        """
+        img = cv2.imread(str(image_path))
+        if img is None:
+            raise ValueError(f"无法读取图片: {image_path}")
+
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result_img = img.copy()  # 在原始图片上标注
+
+        all_detections = []
+        stats = defaultdict(int)
+
+        # 每个模型分别检测
+        for item, model in self.models.items():
+            results = model(img_rgb, conf=0.3, iou=0.5, verbose=False)
+
+            for result in results:
+                if result.boxes is not None:
+                    for box in result.boxes:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                        conf = float(box.conf[0])
+
+                        # 绘制边界框
+                        color = self.colors.get(item, (0, 255, 0))
+                        cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
+
+                        # 绘制标签背景
+                        label = f"{item} {conf:.2f}"
+                        (text_width, text_height), baseline = cv2.getTextSize(
+                            label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+                        )
+
+                        # 标签背景框
+                        cv2.rectangle(result_img,
+                                      (x1, y1 - text_height - 10),
+                                      (x1 + text_width, y1),
+                                      color, -1)
+
+                        # 标签文字
+                        cv2.putText(result_img, label,
+                                    (x1, y1 - 5),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                                    (255, 255, 255), 2)
+
+                        # 记录检测结果
+                        detection = {
+                            'item': item,
+                            'confidence': round(conf, 3),
+                            'bbox': [x1, y1, x2, y2],
+                            'area': (x2 - x1) * (y2 - y1)
+                        }
+                        all_detections.append(detection)
+                        stats[item] += 1
+
+        return result_img, all_detections, dict(stats)
+
+
+    # def detect_laptop_only(self, image_path):
+    #     """
+    #     仅检测图片中的笔记本电脑
+    #     Author:
+    #     Args:
+    #         image_path: 图片路径
+    #
+    #     Returns:
+    #         (标注后的图片，检测结果列表，统计信息)
+    #
+    #     """
+    #     img = cv2.imread(str(image_path))
+    #     if img is None:
+    #         raise ValueError(f"无法读取图片：{image_path}")
+    #
+    #     img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    #     result_img = img.copy()
+    #
+    #     all_detections = []
+    #     stats = defaultdict(int)
+    #
+    #     # 只使用 laptop 模型检测
+    #     if 'laptop' in self.models:
+    #         model = self.models['laptop']
+    #         results = model(img_rgb, conf=0.3, iou=0.5, verbose=False)
+    #
+    #         for result in results:
+    #             if result.boxes is not None:
+    #                 for box in result.boxes:
+    #                     x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+    #                     conf = float(box.conf[0])
+    #
+    #                     # 绘制边界框
+    #                     color = self.colors.get('laptop', (0, 255, 0))
+    #                     cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
+    #
+    #                     # 绘制标签背景
+    #                     label = f"laptop {conf:.2f}"
+    #                     (text_width, text_height), baseline = cv2.getTextSize(
+    #                         label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+    #                     )
+    #
+    #                     # 标签背景框
+    #                     cv2.rectangle(result_img,
+    #                                   (x1, y1 - text_height - 10),
+    #                                   (x1 + text_width, y1),
+    #                                   color, -1)
+    #
+    #                     # 标签文字
+    #                     cv2.putText(result_img, label,
+    #                                 (x1, y1 - 5),
+    #                                 cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+    #                                 (255, 255, 255), 2)
+    #
+    #                     # 记录检测结果
+    #                     detection = {
+    #                         'item': 'laptop',
+    #                         'confidence': round(conf, 3),
+    #                         'bbox': [x1, y1, x2, y2],
+    #                         'area': (x2 - x1) * (y2 - y1)
+    #                     }
+    #                     all_detections.append(detection)
+    #                     stats['laptop'] += 1
+    #
+    #     return result_img, all_detections, dict(stats)
+
+    def save_result_image(self, result_img, output_path):
+        """
+        保存结果图片
+        Author:
+        Args:
+            result_img: 结果图片
+            output_path: 输出图片路径
+
+        Returns:
+            输出图片路径
+
+        """
+        cv2.imwrite(str(output_path), result_img)
+        return output_path
+
+    def detect_with_models(self, image_path, model_names):
+        """
+        使用指定的模型检测图片中的物品
+        Author: Young
+        Args:
+            image_path: 图片路径
+            model_names: 要使用的模型名称列表，如 ['laptop', 'keyboard']
+
+        Returns:
+            (标注后的图片，检测结果列表，统计信息)
+
+        """
+        img = cv2.imread(str(image_path))
+        if img is None:
+            raise ValueError(f"无法读取图片：{image_path}")
+
+        img_rgb = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+        result_img = img.copy()
+
+        all_detections = []
+        stats = defaultdict(int)
+
+        # 只使用指定的模型检测
+        for item_name in model_names:
+            if item_name not in self.models:
+                continue
+
+            model = self.models[item_name]
+            results = model(img_rgb, conf=0.3, iou=0.5, verbose=False)
+
+            for result in results:
+                if result.boxes is not None:
+                    for box in result.boxes:
+                        x1, y1, x2, y2 = map(int, box.xyxy[0].tolist())
+                        conf = float(box.conf[0])
+
+                        # 绘制边界框
+                        color = self.colors.get(item_name, (0, 255, 0))
+                        cv2.rectangle(result_img, (x1, y1), (x2, y2), color, 2)
+
+                        # 绘制标签背景
+                        label = f"{item_name} {conf:.2f}"
+                        (text_width, text_height), baseline = cv2.getTextSize(
+                            label, cv2.FONT_HERSHEY_SIMPLEX, 0.6, 2
+                        )
+
+                        # 标签背景框
+                        cv2.rectangle(result_img,
+                                      (x1, y1 - text_height - 10),
+                                      (x1 + text_width, y1),
+                                      color, -1)
+
+                        # 标签文字
+                        cv2.putText(result_img, label,
+                                    (x1, y1 - 5),
+                                    cv2.FONT_HERSHEY_SIMPLEX, 0.6,
+                                    (255, 255, 255), 2)
+
+                        # 记录检测结果
+                        detection = {
+                            'item': item_name,
+                            'confidence': round(conf, 3),
+                            'bbox': [x1, y1, x2, y2],
+                            'area': (x2 - x1) * (y2 - y1)
+                        }
+                        all_detections.append(detection)
+                        stats[item_name] += 1
+
+        return result_img, all_detections, dict(stats)
 
 # 全局检测器实例
 detector = OfficeObjectDetector()
@@ -22,16 +323,43 @@ detector = OfficeObjectDetector()
 
 def home(request):
     """
-    首页视图函数，显示上传图片的表单
-    Author:
-    Args:
-        request(HttpRequest):Django 的 HttpRequest 对象
-
-    Returns:
-        HttpResponse:返回渲染后的 HTML 页面
-
+    首页视图函数
     """
-    return render(request, 'detector/home.html')
+    return render(request, 'detector/video_upload.html')
+
+def test_media_access(request):
+    """
+    测试媒体文件访问
+    """
+    import os
+    from django.http import HttpResponse, JsonResponse
+    from django.conf import settings
+    
+    test_file = os.path.join(settings.MEDIA_ROOT, 'videos', 'results', 'test.txt')
+    
+    # 创建测试文件
+    os.makedirs(os.path.dirname(test_file), exist_ok=True)
+    with open(test_file, 'w') as f:
+        f.write('如果能看到这个文件，说明媒体文件配置正确！')
+    
+    test_url = '/media/videos/results/test.txt'
+    
+    return HttpResponse(f"""
+    <html>
+    <head><title>媒体文件测试</title></head>
+    <body>
+        <h2>媒体文件访问测试</h2>
+        <p><strong>MEDIA_URL:</strong> {settings.MEDIA_URL}</p>
+        <p><strong>MEDIA_ROOT:</strong> {settings.MEDIA_ROOT}</p>
+        <p><strong>测试文件路径:</strong> {test_file}</p>
+        <p><strong>测试文件 URL:</strong> <a href="{test_url}" target="_blank">{test_url}</a></p>
+        <p><strong>文件存在:</strong> {os.path.exists(test_file)}</p>
+        <hr>
+        <p>请点击上面的测试文件 URL，如果能看到文字，说明 Django 媒体文件服务配置正确。</p>
+        <p><a href="/">返回首页</a></p>
+    </body>
+    </html>
+    """)
 
 def user_login(request):
     if request.method == 'POST':
@@ -312,9 +640,9 @@ def upload_image_laptop(request):
                 }
                 image_record.processing_time = processing_time
                 image_record.save()
-                print(f"[UPLOAD] ✓ 笔记本检测记录更新成功！ID={image_record.id}")
+                print(f"[VIDEO] ✓ 笔记本检测记录更新成功！ID={image_record.id}")
             except Exception as e:
-                print(f"[UPLOAD] ✗ 笔记本检测记录更新失败：{e}")
+                print(f"[VIDEO] ✗ 笔记本检测记录更新失败：{e}")
                 import traceback
                 traceback.print_exc()
 
@@ -392,7 +720,7 @@ def upload_records(request):
         'search_query': search_query,
     }
 
-    return render(request, 'upload_records.html', context)
+    return render(request, 'upload_record.html', context)
 
 def history(request):
     """
@@ -429,3 +757,314 @@ def history(request):
     }
 
     return render(request, 'history.html', context)
+
+
+# ==================== 视频上传检测功能 ====================
+# @login_required(login_url='login')  # 已注释，用于测试
+def upload_video(request):
+    """
+    视频上传并逐帧检测
+    流程：上传视频 -> 拆分帧 -> YOLO 检测标注 -> 合成视频
+    """
+    print("=" * 60)
+    print("[VIDEO] ========== 开始处理视频上传 ==========")
+    print(f"[VIDEO] 请求方法：{request.method}")
+    print(f"[VIDEO] FILES: {list(request.FILES.keys()) if request.FILES else '无'}")
+
+    # GET 请求：显示上传页面
+    if request.method == 'GET':
+        return render(request, 'detector/video_upload.html')
+
+    # POST 请求：处理视频上传
+    try:
+        # 1. 验证文件是否存在
+        if 'video' not in request.FILES:
+            error_msg = '请选择要上传的视频文件'
+            print(f"[VIDEO] ✗ 错误：{error_msg}")
+            return render(request, 'detector/video_upload.html', {'error': error_msg})
+
+        uploaded_video = request.FILES['video']
+        print(f"[VIDEO] 文件名：{uploaded_video.name}")
+        print(f"[VIDEO] 文件大小：{uploaded_video.size} bytes")
+        print(f"[VIDEO] 文件类型：{uploaded_video.content_type}")
+
+        # 2. 验证文件大小（最大 100MB）
+        max_size = 100 * 1024 * 1024
+        if uploaded_video.size > max_size:
+            error_msg = f'视频文件过大，最大允许 {max_size // (1024*1024)} MB'
+            print(f"[VIDEO] ✗ 错误：{error_msg}")
+            return render(request, 'detector/video_upload.html', {'error': error_msg})
+
+        # 3. 验证文件扩展名
+        allowed_ext = ['.mp4', '.avi', '.mov', '.mkv', '.webm']
+        ext = os.path.splitext(uploaded_video.name)[1].lower()
+        if ext not in allowed_ext:
+            error_msg = f'不支持的文件类型 {ext}，请上传 MP4/AVI/MOV/MKV/WEBM 格式'
+            print(f"[VIDEO] ✗ 错误：{error_msg}")
+            return render(request, 'detector/video_upload.html', {'error': error_msg})
+
+        # 4. 生成时间戳和路径
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        temp_dir = None
+        
+        # 5. 保存原始视频
+        video_dir = os.path.join(settings.MEDIA_ROOT, 'videos', 'uploads')
+        os.makedirs(video_dir, exist_ok=True)
+        original_filename = f"{timestamp}_{uploaded_video.name}"
+        original_video_path = os.path.join(video_dir, original_filename)
+        
+        print(f"[VIDEO] 保存原始视频到：{original_video_path}")
+        with open(original_video_path, 'wb+') as f:
+            for chunk in uploaded_video.chunks():
+                f.write(chunk)
+        print(f"[VIDEO] ✓ 原始视频保存成功")
+
+        # 6. 准备输出视频路径
+        result_dir = os.path.join(settings.MEDIA_ROOT, 'videos', 'results')
+        os.makedirs(result_dir, exist_ok=True)
+        output_filename = f"detected_{timestamp}.mp4"
+        output_video_path = os.path.join(result_dir, output_filename)
+        print(f"[VIDEO] 输出视频路径：{output_video_path}")
+
+        # 7. 创建临时目录
+        temp_dir = os.path.join(settings.MEDIA_ROOT, 'temp', timestamp)
+        os.makedirs(temp_dir, exist_ok=True)
+        print(f"[VIDEO] 临时目录：{temp_dir}")
+
+        # 8. 打开视频文件
+        print("[VIDEO] 正在打开视频文件...")
+        cap = cv2.VideoCapture(original_video_path)
+        if not cap.isOpened():
+            raise Exception("无法打开视频文件，请检查文件是否损坏或编码不受支持")
+
+        # 9. 获取视频参数
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
+        
+        print(f"[VIDEO] 视频参数：fps={fps}, 分辨率={width}x{height}, 总帧数={total_frames}")
+
+        # 修正无效参数
+        if fps <= 0:
+            fps = 25
+            print("[VIDEO] ⚠️ fps 无效，使用默认值 25")
+        if width <= 0 or height <= 0:
+            width, height = 640, 480
+            print(f"[VIDEO] ⚠️ 分辨率无效，使用默认值 {width}x{height}")
+
+        # 10. 创建视频写入器 - 使用最简单的配置
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_video_path, fourcc, fps, (width, height))
+        
+        if not out.isOpened():
+            error_msg = "无法创建输出视频文件"
+            print(f"[VIDEO] ✗ 错误：{error_msg}")
+            print(f"[VIDEO] 输出路径：{output_video_path}")
+            print(f"[VIDEO] 参数：fourcc=mp4v, fps={fps}, size={width}x{height}")
+            raise Exception(error_msg)
+        
+        print(f"[VIDEO] ✓ 视频写入器创建成功")
+        print(f"[VIDEO] 编码器：mp4v, FPS: {fps}, 分辨率：{width}x{height}")
+
+        # 11. 逐帧处理 - 简化版本
+        print("[VIDEO] 🚀 开始逐帧处理...")
+        all_detections = []
+        frame_count = 0
+        start_time = datetime.now()
+
+        while True:
+            ret, frame = cap.read()
+            if not ret:
+                break
+            
+            frame_count += 1
+            
+            try:
+                # 直接使用帧进行检测和写入，不保存临时文件
+                # 调用检测器
+                temp_frame_path = os.path.join(temp_dir, f"frame_{frame_count:06d}.jpg")
+                cv2.imwrite(temp_frame_path, frame)
+                
+                result_img, detections, stats = detector.detect(temp_frame_path)
+                all_detections.append(detections)
+                
+                # 写入标注后的帧
+                out.write(result_img)
+                
+                # 删除临时文件
+                if os.path.exists(temp_frame_path):
+                    os.remove(temp_frame_path)
+                
+                if frame_count % 30 == 0:
+                    elapsed = (datetime.now() - start_time).total_seconds()
+                    print(f"[VIDEO] 进度：{frame_count}/{total_frames} 帧，耗时 {elapsed:.1f}s")
+                    
+            except Exception as e:
+                print(f"[VIDEO] ✗ 第 {frame_count} 帧失败：{e}")
+                out.write(frame)
+                continue
+
+        print(f"[VIDEO] ✓ 处理完成，共 {frame_count} 帧")
+
+        # 12. 释放资源
+        cap.release()
+        out.release()
+        print("[VIDEO] ✓ 视频资源已释放")
+        
+        # 验证输出文件
+        if not os.path.exists(output_video_path):
+            raise Exception(f"输出视频文件不存在：{output_video_path}")
+        
+        output_size = os.path.getsize(output_video_path)
+        print(f"[VIDEO] 📁 OpenCV 输出的视频大小：{output_size} bytes ({output_size / 1024 / 1024:.2f} MB)")
+        
+        if output_size == 0:
+            raise Exception("输出视频文件大小为 0，处理失败")
+        
+        # 使用 OpenCV 验证
+        test_cap = cv2.VideoCapture(output_video_path)
+        if not test_cap.isOpened():
+            print(f"[VIDEO] ✗ OpenCV 无法打开输出视频")
+        else:
+            test_frames = int(test_cap.get(cv2.CAP_PROP_FRAME_COUNT))
+            test_fps = test_cap.get(cv2.CAP_PROP_FPS)
+            test_cap.release()
+            print(f"[VIDEO] ✓ OpenCV 验证成功：{test_frames} 帧，{test_fps} FPS")
+        
+        # 使用 ffmpeg 重新编码为浏览器兼容格式
+        print(f"[VIDEO] 🎬 开始使用 ffmpeg 重新编码为浏览器兼容格式...")
+        try:
+            import subprocess
+            
+            final_output = output_video_path
+            temp_output = output_video_path + '.reencoded.mp4'
+            
+            # ffmpeg 命令 - 使用 H.264 编码，yuv420p 像素格式
+            cmd = [
+                'ffmpeg',
+                '-i', output_video_path,           # 输入文件
+                '-c:v', 'libx264',                 # 视频编码器：H.264
+                '-preset', 'medium',               # 编码速度预设
+                '-crf', '23',                      # 质量 (0-51, 越小质量越高)
+                '-pix_fmt', 'yuv420p',            # 像素格式（浏览器兼容关键）
+                '-movflags', '+faststart',        # 支持边下载边播放
+                '-c:a', 'aac',                     # 音频编码器
+                '-b:a', '128k',                    # 音频比特率
+                '-y',                              # 覆盖输出文件
+                temp_output
+            ]
+            
+            print(f"[VIDEO] 执行 ffmpeg 命令...")
+            print(f"[VIDEO] {' '.join(cmd)}")
+            
+            # 执行 ffmpeg
+            process = subprocess.Popen(
+                cmd,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                creationflags=subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+            )
+            stdout, stderr = process.communicate()
+            
+            if process.returncode == 0:
+                # 检查新文件
+                if os.path.exists(temp_output):
+                    new_size = os.path.getsize(temp_output)
+                    print(f"[VIDEO] ✅ ffmpeg 重新编码成功！")
+                    print(f"[VIDEO] 📁 新文件大小：{new_size} bytes ({new_size / 1024 / 1024:.2f} MB)")
+                    
+                    # 验证新文件
+                    test_new = cv2.VideoCapture(temp_output)
+                    if test_new.isOpened():
+                        new_frames = int(test_new.get(cv2.CAP_PROP_FRAME_COUNT))
+                        new_fps = test_new.get(cv2.CAP_PROP_FPS)
+                        test_new.release()
+                        print(f"[VIDEO] ✓ 新视频验证：{new_frames} 帧，{new_fps} FPS")
+                        
+                        # 替换原文件
+                        os.replace(temp_output, output_video_path)
+                        print(f"[VIDEO] ✓ 已替换为重新编码的文件")
+                    else:
+                        print(f"[VIDEO] ✗ 警告：无法验证新视频")
+                        if os.path.exists(temp_output):
+                            os.remove(temp_output)
+                else:
+                    print(f"[VIDEO] ✗ ffmpeg 输出文件不存在")
+            else:
+                print(f"[VIDEO] ✗ ffmpeg 失败，返回码：{process.returncode}")
+                print(f"[VIDEO] stderr: {stderr.decode('utf-8', errors='ignore')}")
+                if os.path.exists(temp_output):
+                    os.remove(temp_output)
+                    
+        except FileNotFoundError:
+            print(f"[VIDEO] ✗ ffmpeg 未找到，请确认已正确安装")
+        except Exception as e:
+            print(f"[VIDEO] ✗ ffmpeg 处理失败：{e}")
+            import traceback
+            traceback.print_exc()
+
+        # 13. 清理临时目录
+        if temp_dir and os.path.exists(temp_dir):
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print("[VIDEO] ✓ 临时目录已清理")
+
+        # 14. 汇总统计信息
+        summary = {}
+        for frame_dets in all_detections:
+            for det in frame_dets:
+                label = det.get('item', 'unknown')
+                summary[label] = summary.get(label, 0) + 1
+
+        print(f"[VIDEO] 📊 检测统计：{summary}")
+        print(f"[VIDEO] ✅ 视频处理完成！")
+
+        # 15. 返回结果页面
+        context = {
+            'original_video_url': f'/media/videos/uploads/{original_filename}',
+            'result_video_url': f'/media/videos/results/{output_filename}',
+            'summary': summary,
+            'total_frames': frame_count,
+            'processed_frames': len(all_detections),
+            'debug_info': True,
+            'file_exists': os.path.exists(output_video_path),
+            'file_size': output_size,
+            'absolute_result_path': output_video_path,
+            'absolute_original_path': original_video_path,
+            # 添加可访问性测试
+            'media_url': settings.MEDIA_URL,
+            'media_root': settings.MEDIA_ROOT,
+        }
+        
+        print(f"[VIDEO] ========== 处理完成 ==========")
+        print(f"[VIDEO] MEDIA_URL: {settings.MEDIA_URL}")
+        print(f"[VIDEO] MEDIA_ROOT: {settings.MEDIA_ROOT}")
+        print(f"[VIDEO] 原始视频：{original_video_path}")
+        print(f"[VIDEO] 检测结果：{output_video_path}")
+        print(f"[VIDEO] 文件存在：{os.path.exists(output_video_path)}")
+        print(f"[VIDEO] 文件可读：{os.access(output_video_path, os.R_OK)}")
+        
+        # 测试 URL 是否能访问
+        test_url = f'/media/videos/results/{output_filename}'
+        print(f"[VIDEO] 测试 URL: {test_url}")
+        
+        return render(request, 'detector/video_result.html', context)
+
+    except Exception as e:
+        error_msg = f"视频处理失败：{str(e)}"
+        print(f"[VIDEO] ✗ 严重错误：{error_msg}")
+        import traceback
+        traceback.print_exc()
+        
+        # 清理临时目录
+        if temp_dir and os.path.exists(temp_dir):
+            import shutil
+            shutil.rmtree(temp_dir, ignore_errors=True)
+            print("[VIDEO] ✓ 临时目录已清理")
+        
+        return render(request, 'detector/video_upload.html', {'error': error_msg})
+
+
+# ==================== 其他视图函数 ====================
+

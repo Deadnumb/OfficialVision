@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
-
+from django.conf import settings
+from django.conf.urls.static import static
 """
 URL配置
 1. 首页：显示所有检测结果
@@ -15,9 +16,8 @@ urlpatterns = [
     path('register/', views.user_register, name='register'),
     path('login/', views.user_login, name='login'),
     path('logout/', views.user_logout, name='logout'),
-    # Deleted:path('upload/laptop/', views.upload_image_laptop, name='upload_laptop'),
-    # path('profile/', views.uprofile, name='profile'),
-    # path('history/', views.history, name='history')
-    path('history/', views.history, name='history'),  #历史记录页面
-    path('upload-records/', views.upload_records, name='upload_records'),  # 上传记录页面
+    path('history/', views.history, name='history'),
+    path('upload-records/', views.upload_records, name='upload_records'),
+    path('upload/video/', views.upload_video, name='upload_video'),
+    path('test-media/', views.test_media_access, name='test_media'),  # 测试媒体文件
 ]
