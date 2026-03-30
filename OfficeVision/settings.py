@@ -12,6 +12,16 @@ https://docs.djangoproject.com/en/6.0/ref/settings/
 
 import os
 from pathlib import Path
+DATA_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024  # 100MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 100 * 1024 * 1024
+# 增加视频上传限制
+VIDEO_UPLOAD_MAX_FILE_SIZE = 100 * 1024 * 1024  # 100MB
+VIDEO_ALLOWED_EXTENSIONS = ['.mp4', '.avi', '.mov', '.mkv', '.webm']
+
+# 确保 CSRF 配置正确
+CSRF_COOKIE_SECURE = False  # 开发环境设为 False
+CSRF_COOKIE_HTTPONLY = False
+CSRF_USE_SESSIONS = False
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -119,7 +129,7 @@ STATIC_URL = "static/"
 STATICFILES_DIRS = [BASE_DIR/'static']
 
 MEDIA_URL = '/media/'
-MEDIA_ROOT = BASE_DIR / 'media'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 # ========== 添加的登录相关配置 ==========
 # 登录相关的 URL 配置

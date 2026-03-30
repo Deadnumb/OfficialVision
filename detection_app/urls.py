@@ -3,7 +3,7 @@ from . import views
 
 """
 URL配置
-1. 首页：个人中心
+1. 首页：显示所有检测结果
 2. 上传图片：允许用户上传图片进行检测
 3. 检测结果：显示单个检测结果的详细信息
 
@@ -18,4 +18,8 @@ urlpatterns = [
     path('history/', views.history, name='history'),
     path('upload-records/', views.upload_records, name='upload_records'),
     path('upload-avatar/', views.upload_avatar, name='upload_avatar'),
+    path('history/', views.history, name='history'),
+    path('upload-records/', views.upload_records, name='upload_records'),
+    path('upload/video/', views.upload_video, name='upload_video'),
+    path('test-media/', views.test_media_access, name='test_media'),  # 测试媒体文件
 ]
